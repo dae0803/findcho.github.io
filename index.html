@@ -20,7 +20,7 @@
     #progress{width:100%; height:10px; background:#eee; border:1px solid #ccc}
     #progress > i{display:block; height:100%; width:0%; background:#4caf50}
     /* 실시간 OCR 텍스트 표시창 (간단) */
-    #ocrLive { margin-top:8px; padding:6px; border:1px dashed #9c9; min-height:48px; background:#f6fff6; font-size:14px; white-space:pre-wrap; overflow:auto; display:flex; gap:8px; align-items:flex-start; }
+    #ocrLive { margin-top:8px; padding:6px; border:1px dashed #9c9; min-height:48px; background:#f6fff6; font-size:; white-space:pre-wrap; overflow:auto; display:flex; gap:8px; align-items:flex-start; }
     #ocrLiveText { flex:1; white-space:pre-wrap; word-break:break-word; }
     #copyLiveBtn { flex:0 0 auto; padding:6px 8px; font-size:12px; cursor:pointer; }
    </style>
@@ -457,82 +457,64 @@
      // 문자 단위 분할 후 개별 인식 (보완판: 수평 프로젝션 기반 분할 + 퍼스트폴백)
     async function segmentAndRecognize(procCanvas) {
       const WHITELIST = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
-      
-      // 고정 간격 분할 (자음 퀴즈는 글자 크기 동일)
       const w = procCanvas.width, h = procCanvas.height;
-      
-      // 1) 자동 글자 수 추정: 너비를 높이 기준으로 나눔 (자음은 정사각형에 가까움)
-      const avgCharWidth = Math.max(h * 0.7, 20); // 최소 20px
+      const avgCharWidth = Math.max(h * 0.7, 20);
       let numChars = Math.max(1, Math.round(w / avgCharWidth));
-      numChars = Math.min(12, numChars); // 최대 12자
-      
-      log(`고정분할: 추정 글자수=${numChars}, 전체너비=${w}, 글자당너비=${Math.floor(w/numChars)}`);
-      
+      numChars = Math.min(12, numChars);
+      log(`고정분할: 추정 글자수=${numChars}, 전체너비=${w}`);
       const charWidth = Math.floor(w / numChars);
       const results = [];
+      const charCanvases = []; // 추가: 학습용
       
       for (let i = 0; i < numChars; i++) {
         const sx = i * charWidth;
-        const sw = (i === numChars - 1) ? (w - sx) : charWidth; // 마지막은 남은 전체
-        
-        if (sw < 8) { results.push(''); continue; }
-        
-        // 여백 제거 (좌우 10%, 상하 5%)
+        const sw = (i === numChars - 1) ? (w - sx) : charWidth;
+        if (sw < 8) { results.push(''); charCanvases.push(null); continue; }
         const marginX = Math.floor(sw * 0.1);
         const marginY = Math.floor(h * 0.05);
         const sx2 = sx + marginX, sy2 = marginY;
         const sw2 = Math.max(1, sw - marginX * 2);
         const sh2 = Math.max(1, h - marginY * 2);
-        
         const charCanvas = document.createElement('canvas');
         charCanvas.width = sw2; charCanvas.height = sh2;
         const ctx = charCanvas.getContext('2d');
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(procCanvas, sx2, sy2, sw2, sh2, 0, 0, sw2, sh2);
+        charCanvases.push(charCanvas); // 저장
         
-        // 개별 인식 시도
         let charText = '';
-        try {
-          if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) {
-            await ocrWorker.setParameters({ 
-              tessedit_pageseg_mode: '10',
-              tessedit_char_whitelist: WHITELIST,
-              tessedit_ocr_engine_mode: '1' // LSTM only
-            });
-            const rres = await ocrWorker.recognize(charCanvas);
-            charText = (rres?.data?.text || rres?.text || '').trim();
-          } else {
-            const rres = await Tesseract.recognize(charCanvas, 'kor', {
-              langPath: TESSDATA_BASE,
-              tessedit_pageseg_mode: '10',
-              tessedit_char_whitelist: WHITELIST,
-              tessedit_ocr_engine_mode: '1'
-            });
-            charText = (rres?.data?.text || rres?.text || '').trim();
+        if (cnnModel) charText = await predictChar(charCanvas);
+        if (!charText) {
+          try {
+            if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) {
+              await ocrWorker.setParameters({ tessedit_pageseg_mode: '10', tessedit_char_whitelist: WHITELIST, tessedit_ocr_engine_mode: '1' });
+              const rres = await ocrWorker.recognize(charCanvas);
+              charText = (rres?.data?.text || rres?.text || '').trim();
+            } else {
+              const rres = await Tesseract.recognize(charCanvas, 'kor', { langPath: TESSDATA_BASE, tessedit_pageseg_mode: '10', tessedit_char_whitelist: WHITELIST });
+              charText = (rres?.data?.text || rres?.text || '').trim();
+            }
+            charText = charText.replace(/[^\u3131-\u314E]/g, '');
+            log(`문자 ${i+1}: Tesseract="${charText}"`);
+          } catch (e) {
+            log(`문자 ${i+1}: Tesseract 실패 - ${e?.message}`);
+            charText = '';
           }
-        } catch (e) {
-          log(`문자 ${i+1} 인식 실패: ${e?.message}`);
-          charText = '';
         }
-        
-        // 후보정: 빈 문자 또는 공백만 있으면 픽셀 밀도 기반 추정
-        if (!charText || /^\s*$/.test(charText)) {
+        if (!charText) {
           charText = guessCharByDensity(charCanvas);
-          log(`문자 ${i+1}: Tesseract 실패 -> 밀도추정="${charText}"`);
-        } else {
-          charText = charText.replace(/[^\u3131-\u314E]/g, ''); // 자음만
-          log(`문자 ${i+1}: Tesseract="${charText}"`);
+          log(`문자 ${i+1}: 밀도추정="${charText}"`);
         }
-        
         results.push(charText || '');
       }
       
-      // PSM 복원
-      try { 
-        if (ocrWorker?.setParameters && !ocrWorker._fallback) 
-          await ocrWorker.setParameters({ tessedit_pageseg_mode: '7' }); 
-      } catch(_) {}
+      // 수집 모드일 때 저장
+      if (collectMode && charCanvases.length > 0) {
+        // 라벨 입력 UI 표시
+        showLabelUI(charCanvases, results);
+      }
       
+      try { if (ocrWorker?.setParameters && !ocrWorker._fallback) await ocrWorker.setParameters({ tessedit_pageseg_mode: '7' }); } catch(_) {}
       return results.join('');
     }
 
@@ -750,85 +732,103 @@ function canvasToTensor(canvas) {
   return tf.tensor4d(gray, [1, IMG_SIZE, IMG_SIZE, 1]);
 }
 
-// 모델 로드 시도 (로컬 storage 또는 URL)
+// 모델 로드 시도 (우선순위: 1.GitHub URL → 2.IndexedDB → 3.새로 생성)
 async function loadCNNModel() {
   try {
-    // 1) IndexedDB에서 로드 시도
-    cnnModel = await tf.loadLayersModel('indexeddb://korean-consonant-cnn');
-    log('CNN 모델 로드 완료 (IndexedDB)');
+    // 1) GitHub Pages에서 미리 학습된 모델 로드 시도
+    const modelUrl = 'model/model.json'; // GitHub repo의 model/model.json 경로
+    cnnModel = await tf.loadLayersModel(modelUrl);
+    log('CNN 모델 로드 완료 (GitHub)');
     return true;
-  } catch (e) {
-    log('CNN 모델 미존재 또는 로드 실패: ' + e.message);
-    // 2) 새로 생성 (학습 필요)
-    cnnModel = createCNNModel();
-    log('CNN 모델 새로 생성 - 학습 데이터 필요');
-    return false;
-  }
-}
-
-// 예측 (단일 문자 캔버스 -> 자음)
-async function predictChar(charCanvas) {
-  if (!cnnModel) {
-    log('CNN 모델 미로드 - Tesseract fallback');
-    return null;
-  }
-  
-  const tensor = canvasToTensor(charCanvas);
-  const pred = cnnModel.predict(tensor);
-  const probs = await pred.data();
-  tensor.dispose();
-  pred.dispose();
-  
-  // 최대 확률 인덱스
-  let maxIdx = 0, maxProb = probs[0];
-  for (let i = 1; i < probs.length; i++) {
-    if (probs[i] > maxProb) {
-      maxProb = probs[i];
-      maxIdx = i;
+  } catch (e1) {
+    log('GitHub 모델 없음, IndexedDB 시도: ' + e1.message);
+    
+    try {
+      // 2) 로컬 IndexedDB에서 로드 시도
+      cnnModel = await tf.loadLayersModel('indexeddb://korean-consonant-cnn');
+      log('CNN 모델 로드 완료 (IndexedDB)');
+      return true;
+    } catch (e2) {
+      log('IndexedDB 모델 없음: ' + e2.message);
+      // 3) 새로 생성 (학습 필요)
+      cnnModel = createCNNModel();
+      log('CNN 모델 새로 생성 - 학습 데이터 필요');
+      return false;
     }
   }
-  
-  // 신뢰도 낮으면 null 반환 (Tesseract fallback)
-  if (maxProb < 0.5) {
-    log(`CNN 신뢰도 낮음(${(maxProb*100).toFixed(1)}%) - fallback`);
-    return null;
-  }
-  
-  const result = CONSONANTS[maxIdx];
-  log(`CNN 예측: ${result} (신뢰도 ${(maxProb*100).toFixed(1)}%)`);
-  return result;
 }
 
-// ========== segmentAndRecognize 함수 수정 (CNN 우선 사용) ==========
-async function segmentAndRecognize(procCanvas) {
-  const WHITELIST = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
-  
-  const w = procCanvas.width, h = procCanvas.height;
-  const avgCharWidth = Math.max(h * 0.7, 20);
-  let numChars = Math.max(1, Math.round(w / avgCharWidth));
-  numChars = Math.min(12, numChars);
-  
-  log(`고정분할: 추정 글자수=${numChars}, 전체너비=${w}`);
-  
-  const charWidth = Math.floor(w / numChars);
-  const results = [];
-  
-  for (let i = 0; i < numChars; i++) {
-    const sx = i * charWidth;
-    const sw = (i === numChars - 1) ? (w - sx) : charWidth;
-    
-    if (sw < 8) { results.push(''); continue; }
-    
-    const marginX = Math.floor(sw * 0.1);
-    const marginY = Math.floor(h * 0.05);
-    const sx2 = sx + marginX, sy2 = marginY;
-    const sw2 = Math.max(1, sw - marginX * 2);
-    const sh2 = Math.max(1, h - marginY * 2);
-    
-    const charCanvas = document.createElement('canvas');
-    charCanvas.width = sw2; charCanvas.height = sh2;
-    const ctx = charCanvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
+// ========== 학습 UI 추가 ==========
+// HTML body 끝에 학습 패널 추가 (startBtn 이벤트 핸들러 이전에 삽입)
+const trainPanel = document.createElement('div');
+trainPanel.id = 'trainPanel';
+trainPanel.style.cssText = 'position:fixed; bottom:8px; right:8px; background:rgba(255,255,255,0.95); border:2px solid #4caf50; padding:12px; border-radius:8px; max-width:320px; display:none; z-index:10000;';
+trainPanel.innerHTML = `
+  <h4 style="margin:0 0 8px 0; font-size:14px;">CNN 학습 도구</h4>
+  <div style="font-size:12px; margin-bottom:8px;">수집된 샘플: <b id="trainCount">0</b>개 / 최소 100개 권장</div>
+  <div style="display:flex; gap:6px; margin-bottom:8px;">
+    <button id="collectBtn" style="flex:1;">샘플 수집 시작</button>
+    <button id="trainBtn" style="flex:1;" disabled>학습 시작</button>
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button id="exportBtn" style="flex:1;" disabled>모델 내보내기</button>
+    <button id="closeTrainBtn" style="flex:1;">닫기</button>
+  </div>
+  <div id="trainStatus" style="margin-top:8px; font-size:11px; color:#666;"></div>
+`;
+document.body.appendChild(trainPanel);
+
+const collectBtn = document.getElementById('collectBtn');
+const trainBtn = document.getElementById('trainBtn');
+const exportBtn = document.getElementById('exportBtn');
+const closeTrainBtn = document.getElementById('closeTrainBtn');
+const trainCount = document.getElementById('trainCount');
+const trainStatus = document.getElementById('trainStatus');
+
+let collectMode = false;
+let trainingSamples = []; // [{canvas, label}, ...]
+
+// 학습 패널 열기 버튼 (controls에 추가)
+const openTrainBtn = document.createElement('button');
+openTrainBtn.textContent = '모델 학습';
+openTrainBtn.style.background = '#4caf50';
+openTrainBtn.style.color = '#fff';
+document.querySelector('.controls').appendChild(openTrainBtn);
+
+openTrainBtn.addEventListener('click', () => {
+  trainPanel.style.display = 'block';
+});
+
+closeTrainBtn.addEventListener('click', () => {
+  trainPanel.style.display = 'none';
+  collectMode = false;
+  collectBtn.textContent = '샘플 수집 시작';
+});
+
+// 샘플 수집 모드
+collectBtn.addEventListener('click', () => {
+  collectMode = !collectMode;
+  collectBtn.textContent = collectMode ? '수집 중... (클릭=중지)' : '샘플 수집 시작';
+  if (collectMode) {
+    trainStatus.textContent = '화면에서 자음을 캡처하고, 각 문자를 클릭하여 라벨
+document.querySelector('.controls').appendChild(openTrainBtn);
+
+openTrainBtn.addEventListener('click', () => {
+  trainPanel.style.display = 'block';
+});
+
+closeTrainBtn.addEventListener('click', () => {
+  trainPanel.style.display = 'none';
+  collectMode = false;
+  collectBtn.textContent = '샘플 수집 시작';
+});
+
+// 샘플 수집 모드
+collectBtn.addEventListener('click', () => {
+  collectMode = !collectMode;
+  collectBtn.textContent = collectMode ? '수집 중... (클릭=중지)' : '샘플 수집 시작';
+  if (collectMode) {
+    trainStatus.textContent = '화면에서 자음을 캡처하고, 각 문자를 클릭하여 라벨
     ctx.drawImage(procCanvas, sx2, sy2, sw2, sh2, 0, 0, sw2, sh2);
     
     let charText = '';

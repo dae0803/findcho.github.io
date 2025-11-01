@@ -24,6 +24,8 @@
     #ocrLiveText { flex:1; white-space:pre-wrap; word-break:break-word; }
     #copyLiveBtn { flex:0 0 auto; padding:6px 8px; font-size:12px; cursor:pointer; }
    </style>
+   <!-- head 안에 OpenCV 로더 추가 (원하면 async로 바꿔도 됨) -->
+   <script src="https://docs.opencv.org/4.x/opencv.js"></script>
  </head>
  <body>
    <h3>화면 공유 → OCR → DB 조회 → 복사</h3>
@@ -152,7 +154,7 @@
            const initialCode = 0x3131 + initialIndex;
            consonants.push(String.fromCharCode(initialCode));
            
-           // 종성 추출 (있는 경우)
+           // 종성 추 extract (있는 경우)
            const finalIndex = syllableIndex % 28;
            if (finalIndex > 0) {
              const finalCode = 0x3131 + finalIndex - 1;
@@ -338,57 +340,106 @@
        log('선택영역 초기화');
      });
 
-     // 이미지 전처리: 확대(해상도 증가), 그레이스케일, 대비 스트레칭, Otsu 이진화
-     function preprocessCanvas(srcCanvas, scale = 4) {
+     // 이미지 전처리: OpenCV 사용 가능하면 adaptiveThreshold+morphology, 아니면 JS fallback(확대->이진->dilate->despeckle)
+     function preprocessCanvas(srcCanvas, scale = 4, debugPreview = false) {
        const w = Math.max(1, Math.round(srcCanvas.width * scale));
        const h = Math.max(1, Math.round(srcCanvas.height * scale));
-       const c = document.createElement('canvas');
-       c.width = w; c.height = h;
-       const ctx = c.getContext('2d');
+       const outCanvas = document.createElement('canvas');
+       outCanvas.width = w; outCanvas.height = h;
+
+       // OpenCV 사용 가능하면 고급 처리
+       if (window.cv && cv && typeof cv.Mat !== 'undefined') {
+         try {
+           // srcCanvas를 읽어와서 처리
+           const src = cv.imread(srcCanvas);
+           let gray = new cv.Mat();
+           cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+           // 노이즈 제거
+           cv.medianBlur(gray, gray, 3);
+           // 적응 임계(조명 불균일에 강함)
+           let dst = new cv.Mat();
+           cv.adaptiveThreshold(gray, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 31, 10);
+           // morphology closing으로 획 연결(작은 구멍 채우기) -> 이후 dilation으로 획 강화
+           let M = cv.Mat.ones(3, 3, cv.CV_8U);
+           cv.morphologyEx(dst, dst, cv.MORPH_CLOSE, M);
+           cv.dilate(dst, dst, M);
+
+           // 필요시 반전: Tesseract가 더 잘 읽는 배경-텍스트 관계인지 확인하여 반전 적용
+           // (예: 텍스트가 흰색일 때 Tesseract가 잘 못읽으면 아래를 켜서 반전)
+           // cv.bitwise_not(dst, dst);
+
+           // 결과를 outCanvas에 그리기(리사이즈 이미 처리된 상태)
+           cv.imshow(outCanvas, dst);
+
+           // 메모리 해제
+           src.delete(); gray.delete(); dst.delete(); M.delete();
+           if (debugPreview) document.body.appendChild(outCanvas);
+           return outCanvas;
+         } catch (e) {
+           console.warn('OpenCV 처리 실패, fallback 사용:', e);
+           // fallback으로 내려감
+         }
+       }
+
+       // fallback: 기존 알고리즘 + 간단한 팽창(획 강화) + 소형 잡점 제거
+       const ctx = outCanvas.getContext('2d');
        ctx.imageSmoothingEnabled = false;
        ctx.drawImage(srcCanvas, 0, 0, w, h);
-
-       const img = ctx.getImageData(0, 0, w, h);
-       const data = img.data;
-
-       // 그레이스케일 및 히스토그램 생성
-       const hist = new Uint32Array(256);
+       let img = ctx.getImageData(0, 0, w, h);
+       let data = img.data;
+       // 그레이스케일
        for (let i = 0; i < data.length; i += 4) {
          const r = data[i], g = data[i+1], b = data[i+2];
          const lum = Math.round(0.299*r + 0.587*g + 0.114*b);
          data[i] = data[i+1] = data[i+2] = lum;
-         hist[lum]++;
        }
-
-       // Otsu 임계값 계산
-       let total = w * h;
-       let sum = 0;
-       for (let t = 0; t < 256; t++) sum += t * hist[t];
-       let sumB = 0, wB = 0, maxVar = 0, threshold = 0;
-       for (let t = 0; t < 256; t++) {
-         wB += hist[t];
-         if (wB === 0) continue;
-         const wF = total - wB;
-         if (wF === 0) break;
-         sumB += t * hist[t];
-         const mB = sumB / wB;
-         const mF = (sum - sumB) / wF;
-         const varBetween = wB * wF * (mB - mF) * (mB - mF);
-         if (varBetween > maxVar) { maxVar = varBetween; threshold = t; }
+       // Otsu 대체: 간단 적응 임계(블럭 기반)
+       const block = 32;
+       for (let by = 0; by < h; by += block) {
+         for (let bx = 0; bx < w; bx += block) {
+           let sum = 0, cnt = 0;
+           for (let y = by; y < Math.min(h, by+block); y++) {
+             for (let x = bx; x < Math.min(w, bx+block); x++) {
+               const idx = (y*w + x) * 4;
+               sum += data[idx];
+               cnt++;
+             }
+           }
+           const thr = Math.max(0, Math.min(255, Math.round(sum / cnt)));
+           for (let y = by; y < Math.min(h, by+block); y++) {
+             for (let x = bx; x < Math.min(w, bx+block); x++) {
+               const idx = (y*w + x) * 4;
+               const v = data[idx] >= thr ? 255 : 0;
+               data[idx] = data[idx+1] = data[idx+2] = v;
+             }
+           }
+         }
        }
-
-       // 대비 스트레칭 + 이진화
-       for (let i = 0; i < data.length; i += 4) {
-         let v = data[i];
-         // 간단한 대비 보정: 중앙값 기준 약간 증가
-         v = Math.round((v - threshold) * 1.15 + 128);
-         v = v < 0 ? 0 : (v > 255 ? 255 : v);
-         const bw = v >= threshold ? 255 : 0;
-         data[i] = data[i+1] = data[i+2] = bw;
+       // 간단한 소거: 1px 팽창(획 강화)
+       const copy = new Uint8ClampedArray(data);
+       const kernel = [-1,0,1,-w,0,w,w-1,w,w+1];
+       for (let y = 1; y < h-1; y++) {
+         for (let x = 1; x < w-1; x++) {
+           const idx = (y*w + x) * 4;
+           if (data[idx] === 0) { // 검정이면 주변 흰색과 연결되지 않도록
+             let anyBlack = false;
+             for (let ky = -1; ky <= 1 && !anyBlack; ky++) {
+               for (let kx = -1; kx <= 1; kx++) {
+                 const ni = ((y+ky)*w + (x+kx)) * 4;
+                 if (data[ni] === 0) { anyBlack = true; break; }
+               }
+             }
+             if (!anyBlack) {
+               // 잡점으로 판단 -> 흰색으로 제거
+               copy[idx] = copy[idx+1] = copy[idx+2] = 255;
+             }
+           }
+         }
        }
-
+       img.data.set(copy);
        ctx.putImageData(img, 0, 0);
-       return c;
+       if (debugPreview) document.body.appendChild(outCanvas);
+       return outCanvas;
      }
 
      async function doCaptureAndLookup() {

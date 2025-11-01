@@ -1,0 +1,59 @@
+{
+  "model": {
+    "modelType": "Sequential",
+    "layers": [
+      {
+        "type": "Conv2D",
+        "params": {
+          "filters": 32,
+          "kernelSize": [3, 3],
+          "activation": "relu",
+          "inputShape": [32, 32, 1]
+        }
+      },
+      {
+        "type": "MaxPooling2D",
+        "params": {
+          "poolSize": [2, 2]
+        }
+      },
+      {
+        "type": "Conv2D",
+        "params": {
+          "filters": 64,
+          "kernelSize": [3, 3],
+          "activation": "relu"
+        }
+      },
+      {
+        "type": "MaxPooling2D",
+        "params": {
+          "poolSize": [2, 2]
+        }
+      },
+      {
+        "type": "Flatten"
+      },
+      {
+        "type": "Dense",
+        "params": {
+          "units": 128,
+          "activation": "relu"
+        }
+      },
+      {
+        "type": "Dropout",
+        "params": {
+          "rate": 0.5
+        }
+      },
+      {
+        "type": "Dense",
+        "params": {
+          "units": 19,
+          "activation": "softmax"
+        }
+      }
+    ]
+  }
+}

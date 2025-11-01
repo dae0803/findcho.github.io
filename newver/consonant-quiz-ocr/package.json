@@ -1,0 +1,27 @@
+{
+  "name": "consonant-quiz-ocr",
+  "version": "1.0.0",
+  "description": "A web application for capturing quiz answers through OCR from the screen.",
+  "main": "src/js/app.js",
+  "scripts": {
+    "start": "live-server src",
+    "build": "webpack"
+  },
+  "dependencies": {
+    "tesseract.js": "^2.1.1",
+    "tensorflow": "^2.8.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.64.4",
+    "webpack-cli": "^4.9.1",
+    "live-server": "^1.2.1"
+  },
+  "keywords": [
+    "OCR",
+    "quiz",
+    "web",
+    "JavaScript"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}

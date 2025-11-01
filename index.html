@@ -234,9 +234,14 @@
                   // 워커 초기화 후 인식 정확도 개선을 위한 파라미터 설정 시도
                   try {
                     if (typeof ocrWorker.setParameters === 'function') {
-                      // PSM: 7 = treat image as a single text line (선택영역이 한 줄이면 효과적)
-                      await ocrWorker.setParameters({ tessedit_pageseg_mode: '7' });
-                      log('OCR 파라미터 설정: PSM=7');
+                      // 한줄 자음 전용 최적화:
+                      // - PSM: 7 (single text line)
+                      // - whitelist: 한글 자음만 허용 (공백 포함)
+                      await ocrWorker.setParameters({
+                        tessedit_pageseg_mode: '7',
+                        tessedit_char_whitelist: 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ '
+                      });
+                      log('OCR 파라미터 설정: PSM=7, whitelist(한글 자음) 적용');
                     }
                   } catch (e) {
                     log('setParameters 지원 안됨 또는 실패: ' + (e && e.message));
@@ -388,10 +393,18 @@
 
      async function doCaptureAndLookup() {
        try {
-         if (!video.videoWidth || !video.videoHeight) return;
-         const rect = video.getBoundingClientRect();
-         const ctx = canvas.getContext('2d');
-
+        // 비디오/캔버스 준비 상태 확인
+        if (!video || !canvas) {
+          throw new Error('video 또는 canvas 요소 없음');
+        }
+        if (!video.videoWidth || !video.videoHeight || video.readyState < 2) {
+          log('비디오가 준비되지 않음 - 스킵');
+          return;
+        }
+        const rect = video.getBoundingClientRect();
+        const ctx = canvas.getContext && canvas.getContext('2d');
+        if (!ctx) throw new Error('캔버스 2D 컨텍스트 생성 실패');
+ 
          if (selection) {
            // 선택 좌표를 비디오 원해상도에 매핑
            const scaleX = video.videoWidth / rect.width;
@@ -400,15 +413,23 @@
            const sy = Math.round(selection.y * scaleY);
            const sw = Math.round(selection.w * scaleX);
            const sh = Math.round(selection.h * scaleY);
+           if (sw <= 0 || sh <= 0) {
+             log('선택영역 크기 0 - 스킵');
+             return;
+           }
            canvas.width = sw; canvas.height = sh;
-           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+           try { ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh); }
+           catch(drawErr) { throw new Error('drawImage 실패: ' + (drawErr && drawErr.message || drawErr)); }
            log(`캡쳐: 선택영역 (${sx},${sy},${sw}x${sh})`);
          } else {
-           canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+           const cw = video.videoWidth, ch = video.videoHeight;
+           if (cw <= 0 || ch <= 0) { log('비디오 해상도 0 - 스킵'); return; }
+           canvas.width = cw; canvas.height = ch;
+           try { ctx.drawImage(video, 0, 0, canvas.width, canvas.height); }
+           catch(drawErr) { throw new Error('drawImage 실패: ' + (drawErr && drawErr.message || drawErr)); }
            log(`캡쳐: 전체 프레임 (${canvas.width}x${canvas.height})`);
          }
-
+ 
          if (!ocrWorker) {
            log('OCR 워커 미초기화, 초기화 시도...');
            await startOCR();
@@ -417,7 +438,7 @@
              return;
            }
          }
-
+ 
          setStatus('OCR 인식 시작...');
          setProgress(0);
          // 전처리: 해상도 증가 및 이진화로 인식률 향상 (스케일 4로 확대)
@@ -425,9 +446,9 @@
          let res;
          try {
            res = await ocrWorker.recognize(procCanvas);
-         } catch (e) {
-           log('OCR 인식 실패: ' + (e && e.message));
-           throw e;
+         } catch (ocrErr) {
+           log('OCR 인식 실패: ' + (ocrErr && (ocrErr.message || ocrErr)));
+           throw ocrErr;
          }
          // OCR 완료
          setStatus('OCR 완료');
@@ -447,7 +468,7 @@
          // normalizeKey에서 자음만 추출하므로 "안녕하세요" -> "ㅇㄴㄴㅇㅎㅅㅇ"로 변환됨
          const key1 = normalizeKey(raw1);
          log(`정규화 키(자음 추출): [${raw1} -> ${key1}]`);
-
+ 
          // 1열 기준으로 모든 2열값을 조회 (자음 기준 매칭)
          const matches = dbIndex.get(key1) || [];
          if (matches.length > 0) {
@@ -460,11 +481,11 @@
            renderResults([]);
          }
        } catch (e) {
-         setStatus('doCapture 에러: ' + e.message);
-         log('doCapture 에러: ' + e.stack);
+         const emsg = (e && (e.message || e.toString())) || 'unknown error';
+         setStatus('doCapture 에러: ' + emsg);
+         log('doCapture 예외: ' + emsg + '\n' + (e && e.stack ? e.stack : 'stack 없음'));
        }
      }
-
      startBtn.addEventListener('click', async () => {
        try {
          await loadCSV();

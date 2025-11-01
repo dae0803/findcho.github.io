@@ -455,282 +455,129 @@
      // 문자 단위 분할 후 개별 인식 (보완판: 수평 프로젝션 기반 분할 + 퍼스트폴백)
     async function segmentAndRecognize(procCanvas) {
       const WHITELIST = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+      
+      // 고정 간격 분할 (자음 퀴즈는 글자 크기 동일)
+      const w = procCanvas.width, h = procCanvas.height;
+      
+      // 1) 자동 글자 수 추정: 너비를 높이 기준으로 나눔 (자음은 정사각형에 가까움)
+      const avgCharWidth = Math.max(h * 0.7, 20); // 최소 20px
+      let numChars = Math.max(1, Math.round(w / avgCharWidth));
+      numChars = Math.min(12, numChars); // 최대 12자
+      
+      log(`고정분할: 추정 글자수=${numChars}, 전체너비=${w}, 글자당너비=${Math.floor(w/numChars)}`);
+      
+      const charWidth = Math.floor(w / numChars);
       const results = [];
-
-      // 유틸: 캔버스 -> 이진화된 그레이 배열 반환 (0 = 글자(검), 255 = 배경(흰))
-      function getBinaryArray(canvas) {
-        const w = canvas.width, h = canvas.height;
-        const ctx = canvas.getContext('2d');
-        const img = ctx.getImageData(0, 0, w, h);
-        const data = img.data;
-        // 그레이스케일
-        const gray = new Uint8ClampedArray(w * h);
-        for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-          const r = data[i], g = data[i+1], b = data[i+2];
-          gray[j] = Math.round(0.299*r + 0.587*g + 0.114*b);
-        }
-        // 전역 Otsu-ish threshold (간단)
-        let sum = 0;
-        for (let i = 0; i < gray.length; i++) sum += gray[i];
-        const mean = sum / gray.length;
-        const thr = Math.max(0, Math.min(255, mean * 0.95));
-        const bin = new Uint8ClampedArray(w * h);
-        for (let i = 0; i < gray.length; i++) bin[i] = (gray[i] < thr) ? 0 : 255;
-        return { w, h, bin };
-      }
-
-      // 유틸: 수평 투영(컬럼별 검정 픽셀 합)
-      function verticalProjection(binObj) {
-        const { w, h, bin } = binObj;
-        const proj = new Uint32Array(w);
-        for (let x = 0; x < w; x++) {
-          let s = 0;
-          for (let y = 0; y < h; y++) {
-            if (bin[y * w + x] === 0) s++;
-          }
-          proj[x] = s;
-        }
-        return proj;
-      }
-
-      // 유틸: 부드럽게(윈도우 평균)
-      function smoothArray(arr, win = 5) {
-        const out = new Float32Array(arr.length);
-        const half = Math.floor(win/2);
-        for (let i = 0; i < arr.length; i++) {
-          let s = 0, c = 0;
-          for (let j = Math.max(0, i-half); j <= Math.min(arr.length-1, i+half); j++) { s += arr[j]; c++; }
-          out[i] = s / c;
-        }
-        return out;
-      }
-
-      // 후처리 규칙: 픽셀 분포 기반 간단 보정 (ㅅ -> ㅈ 등)
-      function postCorrectChar(rec, charCanvas) {
-        if (!rec) return rec;
-        rec = rec.replace(/\s+/g, '');
-        if (!charCanvas) return rec;
+      
+      for (let i = 0; i < numChars; i++) {
+        const sx = i * charWidth;
+        const sw = (i === numChars - 1) ? (w - sx) : charWidth; // 마지막은 남은 전체
+        
+        if (sw < 8) { results.push(''); continue; }
+        
+        // 여백 제거 (좌우 10%, 상하 5%)
+        const marginX = Math.floor(sw * 0.1);
+        const marginY = Math.floor(h * 0.05);
+        const sx2 = sx + marginX, sy2 = marginY;
+        const sw2 = Math.max(1, sw - marginX * 2);
+        const sh2 = Math.max(1, h - marginY * 2);
+        
+        const charCanvas = document.createElement('canvas');
+        charCanvas.width = sw2; charCanvas.height = sh2;
         const ctx = charCanvas.getContext('2d');
-        const w = charCanvas.width, h = charCanvas.height;
-        const img = ctx.getImageData(0,0,w,h).data;
-        // compute black density in top, middle, bottom thirds
-        function densityInRegion(y0,y1) {
-          let count = 0, total = 0;
-          for (let y = y0; y < y1; y++) {
-            for (let x = 0; x < w; x++) {
-              const idx = (y*w + x)*4;
-              const v = img[idx]; // grayscale or bin -> we used bin earlier, but still ok
-              if (v < 128) count++;
-              total++;
-            }
-          }
-          return total ? (count/total) : 0;
-        }
-        const topD = densityInRegion(0, Math.floor(h/3));
-        const midD = densityInRegion(Math.floor(h/3), Math.floor(2*h/3));
-        const botD = densityInRegion(Math.floor(2*h/3), h);
-
-        // rule: ㅅ -> ㅈ if bottom density significantly higher (ㅈ has 하단 획)
-        if ((rec === 'ㅅ' || rec === 'ㅆ') && botD > Math.max(topD, midD) * 1.25) {
-          return 'ㅈ';
-        }
-        // rule: ㄱ -> ㅋ if right-middle density higher (ㅋ 추가 획)
-        if (rec === 'ㄱ') {
-          // check small right-middle box
-          const rx0 = Math.floor(w*0.6), rx1 = Math.min(w, Math.floor(w*0.95));
-          const ry0 = Math.floor(h*0.35), ry1 = Math.floor(h*0.75);
-          let black = 0, tot = 0;
-          for (let y=ry0;y<ry1;y++){
-            for (let x=rx0;x<rx1;x++){
-              const v = img[(y*w + x)*4];
-              if (v < 128) black++;
-              tot++;
-            }
-          }
-          if (tot && (black / tot) > 0.02) return 'ㅋ';
-        }
-        return rec;
-      }
-
-      // 1) 시도: OpenCV의 contour 기반 분할 (있으면 사용)
-      if (window.cv && cv && typeof cv.findContours === 'function') {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(procCanvas, sx2, sy2, sw2, sh2, 0, 0, sw2, sh2);
+        
+        // 개별 인식 시도
+        let charText = '';
         try {
-          const src = cv.imread(procCanvas);
-          let gray = new cv.Mat();
-          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-          let bin = new cv.Mat();
-          cv.threshold(gray, bin, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
-
-          let contours = new cv.MatVector();
-          let hierarchy = new cv.Mat();
-          cv.findContours(bin, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-          const rects = [];
-          for (let i = 0; i < contours.size(); i++) {
-            const cnt = contours.get(i);
-            const r = cv.boundingRect(cnt);
-            if (r.width < 6 || r.height < 8) { cnt.delete(); continue; }
-            // ignore huge background
-            if (r.width > procCanvas.width * 0.9 && r.height > procCanvas.height * 0.9) { cnt.delete(); continue; }
-            rects.push(r);
-            cnt.delete();
-          }
-          hierarchy.delete(); bin.delete(); gray.delete(); src.delete();
-
-          if (rects.length >= 2) {
-            rects.sort((a,b)=>a.x-b.x);
-            for (const r of rects) {
-              const margin = Math.ceil(Math.min(r.width, r.height) * 0.22);
-              const sx = Math.max(0, r.x - margin), sy = Math.max(0, r.y - margin);
-              const sw = Math.min(procCanvas.width - sx, r.width + margin*2), sh = Math.min(procCanvas.height - sy, r.height + margin*2);
-              const charCanvas = document.createElement('canvas');
-              charCanvas.width = sw; charCanvas.height = sh;
-              const ctx = charCanvas.getContext('2d');
-              ctx.imageSmoothingEnabled = false;
-              ctx.drawImage(procCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
-
-              // per-char OCR
-              let charText = '';
-              try {
-                if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) {
-                  await ocrWorker.setParameters({ tessedit_pageseg_mode: '10', tessedit_char_whitelist: WHITELIST });
-                  const rres = await ocrWorker.recognize(charCanvas);
-                  charText = (rres && rres.data && rres.data.text) ? rres.data.text.trim() : (rres && rres.text ? rres.text.trim() : '');
-                } else {
-                  const rres = await Tesseract.recognize(charCanvas, 'kor', {
-                    langPath: TESSDATA_BASE,
-                    tessedit_pageseg_mode: '10',
-                    tessedit_char_whitelist: WHITELIST
-                  });
-                  charText = (rres && rres.data && rres.data.text) ? rres.data.text.trim() : (rres && rres.text ? rres.text.trim() : '');
-                }
-              } catch (e) {
-                charText = '';
-              }
-              const corrected = postCorrectChar(charText.replace(/\s+/g,''), charCanvas);
-              results.push(corrected || '');
-            }
-            // restore worker psm
-            try { if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) await ocrWorker.setParameters({ tessedit_pageseg_mode: '7' }); } catch(_) {}
-            return results.join('');
+          if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) {
+            await ocrWorker.setParameters({ 
+              tessedit_pageseg_mode: '10',
+              tessedit_char_whitelist: WHITELIST,
+              tessedit_ocr_engine_mode: '1' // LSTM only
+            });
+            const rres = await ocrWorker.recognize(charCanvas);
+            charText = (rres?.data?.text || rres?.text || '').trim();
+          } else {
+            const rres = await Tesseract.recognize(charCanvas, 'kor', {
+              langPath: TESSDATA_BASE,
+              tessedit_pageseg_mode: '10',
+              tessedit_char_whitelist: WHITELIST,
+              tessedit_ocr_engine_mode: '1'
+            });
+            charText = (rres?.data?.text || rres?.text || '').trim();
           }
         } catch (e) {
-          console.warn('segmentAndRecognize(OpenCV) 에러:', e);
+          log(`문자 ${i+1} 인식 실패: ${e?.message}`);
+          charText = '';
         }
-      }
-
-      // 2) 수평 프로젝션 기반 분할 (contour 실패시 fallback)
-      try {
-        const binObj = getBinaryArray(procCanvas);
-        const projRaw = verticalProjection(binObj);
-        const proj = smoothArray(projRaw, 9);
-        const w = binObj.w, h = binObj.h;
-        const maxV = Math.max(...proj);
-        const gapThreshold = Math.max(1, Math.floor(maxV * 0.12)); // 이 값으로 gap 판단
-        // valley detection: 연속으로 gapThreshold 이하인 구간을 모음
-        const valleys = [];
-        let inGap = false, gapStart = 0;
-        for (let x=0;x<w;x++){
-          if (proj[x] <= gapThreshold) {
-            if (!inGap) { inGap = true; gapStart = x; }
-          } else {
-            if (inGap) { valleys.push([gapStart, x-1]); inGap=false; }
-          }
-        }
-        if (inGap) valleys.push([gapStart, w-1]);
-
-        // convert valleys -> split positions (use center of each valley)
-        const cuts = valleys.map(v => Math.floor((v[0]+v[1])/2));
-        // derive segments between cuts (include edges)
-        const segs = [];
-        let last = 0;
-        for (const c of cuts) {
-          if (c - last > 4) { segs.push([last, c]); last = c; }
-        }
-        if (w - last > 4) segs.push([last, w]);
-
-        // Filter very small segments and merge if too many/too small
-        const goodSegs = segs.filter(s => (s[1]-s[0]) > Math.max(6, Math.floor(h*0.12)));
-        // if goodSegs less than 2 or too few, fallback to equal-split heuristic
-        let finalSegs = goodSegs;
-        if (finalSegs.length < 2) {
-          // estimate char count by width heuristic (chars are roughly square-ish)
-          const estCharW = Math.floor(h * 0.6) || Math.max(20, Math.floor(w/5));
-          let n = Math.max(1, Math.round(w / estCharW));
-          // clamp n between 1 and 12
-          n = Math.min(12, Math.max(1, n));
-          const chunk = Math.floor(w / n);
-          finalSegs = [];
-          for (let i=0;i<n;i++){
-            const sx = i*chunk;
-            const ex = (i===n-1) ? w : sx + chunk;
-            finalSegs.push([sx, ex]);
-          }
-        }
-
-        // Per-segment recognition
-        for (const s of finalSegs) {
-          const sx = s[0], ex = s[1];
-          const sw = ex - sx, sh = h;
-          if (sw < 6) { results.push(''); continue; }
-          const charCanvas = document.createElement('canvas');
-          charCanvas.width = sw; charCanvas.height = sh;
-          const ctx = charCanvas.getContext('2d');
-          ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(procCanvas, sx, 0, sw, sh, 0, 0, sw, sh);
-
-          // small margin crop to avoid touching edges
-          const margin = Math.ceil(Math.min(sw, sh) * 0.12);
-          const sx2 = Math.max(0, margin), sy2 = Math.max(0, margin);
-          const sw2 = Math.max(1, sw - margin*2), sh2 = Math.max(1, sh - margin*2);
-          const charCanvas2 = document.createElement('canvas');
-          charCanvas2.width = sw2; charCanvas2.height = sh2;
-          const ctx2 = charCanvas2.getContext('2d');
-          ctx2.imageSmoothingEnabled = false;
-          ctx2.drawImage(charCanvas, sx2, sy2, sw2, sh2, 0, 0, sw2, sh2);
-
-          let charText = '';
-          try {
-            if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) {
-              await ocrWorker.setParameters({ tessedit_pageseg_mode: '10', tessedit_char_whitelist: WHITELIST });
-              const rres = await ocrWorker.recognize(charCanvas2);
-              charText = (rres && rres.data && rres.data.text) ? rres.data.text.trim() : (rres && rres.text ? rres.text.trim() : '');
-            } else {
-              const rres = await Tesseract.recognize(charCanvas2, 'kor', {
-                langPath: TESSDATA_BASE,
-                tessedit_pageseg_mode: '10',
-                tessedit_char_whitelist: WHITELIST
-              });
-              charText = (rres && rres.data && rres.data.text) ? rres.data.text.trim() : (rres && rres.text ? rres.text.trim() : '');
-            }
-          } catch (e) {
-            charText = '';
-          }
-          const corrected = postCorrectChar(charText.replace(/\s+/g,''), charCanvas2);
-          results.push(corrected || '');
-        }
-
-        // restore worker psm
-        try { if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) await ocrWorker.setParameters({ tessedit_pageseg_mode: '7' }); } catch(_) {}
-        return results.join('');
-      } catch (e) {
-        console.warn('segmentAndRecognize(프로젝션) 실패:', e);
-      }
-
-      // 3) 마지막 수단: 전체 인식 후 한글 자음만 반환
-      try {
-        let rres;
-        if (ocrWorker && !ocrWorker._fallback && typeof ocrWorker.recognize === 'function') {
-          await ocrWorker.setParameters({ tessedit_pageseg_mode: '7', tessedit_char_whitelist: WHITELIST + ' ' });
-          rres = await ocrWorker.recognize(procCanvas);
+        
+        // 후보정: 빈 문자 또는 공백만 있으면 픽셀 밀도 기반 추정
+        if (!charText || /^\s*$/.test(charText)) {
+          charText = guessCharByDensity(charCanvas);
+          log(`문자 ${i+1}: Tesseract 실패 -> 밀도추정="${charText}"`);
         } else {
-          rres = await Tesseract.recognize(procCanvas, 'kor', { langPath: TESSDATA_BASE, tessedit_pageseg_mode: '7', tessedit_char_whitelist: WHITELIST + ' ' });
+          charText = charText.replace(/[^\u3131-\u314E]/g, ''); // 자음만
+          log(`문자 ${i+1}: Tesseract="${charText}"`);
         }
-        const txt = (rres && rres.data && rres.data.text) ? rres.data.text : (rres && rres.text ? rres.text : '');
-        return (txt || '').replace(/[^\u3131-\u314E]/g, '').trim();
-      } catch (e) {
-        console.warn('segmentAndRecognize(fallback 전체) 실패:', e);
-        return '';
+        
+        results.push(charText || '');
       }
+      
+      // PSM 복원
+      try { 
+        if (ocrWorker?.setParameters && !ocrWorker._fallback) 
+          await ocrWorker.setParameters({ tessedit_pageseg_mode: '7' }); 
+      } catch(_) {}
+      
+      return results.join('');
+    }
+
+    // 픽셀 밀도 기반 간단 추정 (fallback용)
+    function guessCharByDensity(canvas) {
+      const w = canvas.width, h = canvas.height;
+      const ctx = canvas.getContext('2d');
+      const img = ctx.getImageData(0, 0, w, h).data;
+      
+      // 9분할 영역별 밀도 계산
+      const regions = {
+        topLeft: 0, topCenter: 0, topRight: 0,
+        midLeft: 0, midCenter: 0, midRight: 0,
+        botLeft: 0, botCenter: 0, botRight: 0
+      };
+      
+      const w3 = Math.floor(w / 3), h3 = Math.floor(h / 3);
+      
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const v = img[(y * w + x) * 4];
+          if (v < 128) { // 검정 픽셀
+            const rx = Math.floor(x / w3), ry = Math.floor(y / h3);
+            const key = ['top','mid','bot'][Math.min(2,ry)] + ['Left','Center','Right'][Math.min(2,rx)];
+            regions[key]++;
+          }
+        }
+      }
+      
+      // 간단한 규칙 기반 추정 (확장 가능)
+      const total = Object.values(regions).reduce((a,b)=>a+b, 0);
+      if (total < 5) return ''; // 거의 빈칸
+      
+      // ㅋ: 중앙우 + 우상/우중 밀도 높음
+      if (regions.midRight > regions.midLeft * 1.5 && regions.topRight > 3) return 'ㅋ';
+      // ㅌ: 상단 전체 + 중앙
+      if (regions.topCenter > regions.botCenter * 1.3) return 'ㅌ';
+      // ㅇ: 중앙 밀도 낮고 외곽 밀도 높음
+      if (regions.midCenter < total * 0.15 && total > 10) return 'ㅇ';
+      // ㄹ: 좌측 상단+중단
+      if (regions.topLeft > regions.topRight && regions.midLeft > regions.midRight) return 'ㄹ';
+      // ㅅ: 상단 중앙
+      if (regions.topCenter > Math.max(regions.midCenter, regions.botCenter) * 1.2) return 'ㅅ';
+      // ㅂ: 하단 밀도
+      if (regions.botCenter > regions.topCenter * 1.1) return 'ㅂ';
+      
+      return ''; // 알 수 없음
     }
 
      async function doCaptureAndLookup() {

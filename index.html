@@ -26,6 +26,8 @@
    </style>
    <!-- head 안에 OpenCV 로더 추가 (원하면 async로 바꿔도 됨) -->
    <script src="https://docs.opencv.org/4.x/opencv.js"></script>
+   <!-- head 안에 TensorFlow.js 추가 -->
+   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
  </head>
  <body>
    <h3>화면 공유 → OCR → DB 조회 → 복사</h3>
@@ -682,40 +684,240 @@
          log('doCapture 예외: ' + emsg + '\n' + (e && e.stack ? e.stack : 'stack 없음'));
        }
      }
-     startBtn.addEventListener('click', async () => {
-       try {
-         await loadCSV();
-         await startOCR();
+     // ========== TensorFlow.js 자음 분류기 ==========
+let cnnModel = null;
+const CONSONANTS = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ']; // 19개 (ㄲ,ㄸ,ㅃ,ㅆ,ㅉ 포함)
+const IMG_SIZE = 32; // 입력 이미지 크기 (32x32 grayscale)
 
-         setStatus('화면 공유 권한 요청...');
-         stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-         video.srcObject = stream;
-         previewWrap.style.display = 'inline-block';
+// 모델 생성 (경량 CNN: Conv2D + MaxPool + Dense)
+function createCNNModel() {
+  const model = tf.sequential();
+  
+  // Input: 32x32x1 (grayscale)
+  model.add(tf.layers.conv2d({
+    inputShape: [IMG_SIZE, IMG_SIZE, 1],
+    filters: 16,
+    kernelSize: 3,
+    activation: 'relu',
+    padding: 'same'
+  }));
+  model.add(tf.layers.maxPooling2d({ poolSize: 2 })); // 16x16
+  
+  model.add(tf.layers.conv2d({
+    filters: 32,
+    kernelSize: 3,
+    activation: 'relu',
+    padding: 'same'
+  }));
+  model.add(tf.layers.maxPooling2d({ poolSize: 2 })); // 8x8
+  
+  model.add(tf.layers.flatten());
+  model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+  model.add(tf.layers.dropout({ rate: 0.3 }));
+  model.add(tf.layers.dense({ units: CONSONANTS.length, activation: 'softmax' }));
+  
+  model.compile({
+    optimizer: tf.train.adam(0.001),
+    loss: 'categoricalCrossentropy',
+    metrics: ['accuracy']
+  });
+  
+  log('CNN 모델 생성 완료: ' + model.summary());
+  return model;
+}
 
-         video.addEventListener('loadedmetadata', () => {
-           setTimeout(() => {
-             fitOverlayToVideo();
-             log('비디오 메타데이터 로드: ' + video.videoWidth + 'x' + video.videoHeight);
-           }, 50);
-         });
-         window.addEventListener('resize', fitOverlayToVideo);
+// Canvas를 32x32 grayscale tensor로 변환
+function canvasToTensor(canvas) {
+  // 1) 32x32로 리사이즈
+  const resized = document.createElement('canvas');
+  resized.width = IMG_SIZE;
+  resized.height = IMG_SIZE;
+  const ctx = resized.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(canvas, 0, 0, IMG_SIZE, IMG_SIZE);
+  
+  // 2) grayscale + normalize [0,1]
+  const imgData = ctx.getImageData(0, 0, IMG_SIZE, IMG_SIZE);
+  const data = imgData.data;
+  const gray = new Float32Array(IMG_SIZE * IMG_SIZE);
+  
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    gray[j] = (0.299*r + 0.587*g + 0.114*b) / 255.0; // normalize to [0,1]
+  }
+  
+  // 3) tensor shape: [1, 32, 32, 1]
+  return tf.tensor4d(gray, [1, IMG_SIZE, IMG_SIZE, 1]);
+}
 
-         startBtn.disabled = true;
-         stopBtn.disabled = false;
-         status.textContent = '화면 공유 중... OCR 실행 중';
-         resetSelBtn.disabled = true;
+// 모델 로드 시도 (로컬 storage 또는 URL)
+async function loadCNNModel() {
+  try {
+    // 1) IndexedDB에서 로드 시도
+    cnnModel = await tf.loadLayersModel('indexeddb://korean-consonant-cnn');
+    log('CNN 모델 로드 완료 (IndexedDB)');
+    return true;
+  } catch (e) {
+    log('CNN 모델 미존재 또는 로드 실패: ' + e.message);
+    // 2) 새로 생성 (학습 필요)
+    cnnModel = createCNNModel();
+    log('CNN 모델 새로 생성 - 학습 데이터 필요');
+    return false;
+  }
+}
 
-         // 빠른 디버깅을 위해 1초 간격으로 캡쳐+OCR, 필요시 늘릴 것
-         ocrInterval = setInterval(() => {
-           doCaptureAndLookup().catch(e => console.error(e));
-         }, 1000);
+// 예측 (단일 문자 캔버스 -> 자음)
+async function predictChar(charCanvas) {
+  if (!cnnModel) {
+    log('CNN 모델 미로드 - Tesseract fallback');
+    return null;
+  }
+  
+  const tensor = canvasToTensor(charCanvas);
+  const pred = cnnModel.predict(tensor);
+  const probs = await pred.data();
+  tensor.dispose();
+  pred.dispose();
+  
+  // 최대 확률 인덱스
+  let maxIdx = 0, maxProb = probs[0];
+  for (let i = 1; i < probs.length; i++) {
+    if (probs[i] > maxProb) {
+      maxProb = probs[i];
+      maxIdx = i;
+    }
+  }
+  
+  // 신뢰도 낮으면 null 반환 (Tesseract fallback)
+  if (maxProb < 0.5) {
+    log(`CNN 신뢰도 낮음(${(maxProb*100).toFixed(1)}%) - fallback`);
+    return null;
+  }
+  
+  const result = CONSONANTS[maxIdx];
+  log(`CNN 예측: ${result} (신뢰도 ${(maxProb*100).toFixed(1)}%)`);
+  return result;
+}
 
-         log('주기적 OCR 시작 (1초)');
-       } catch (e) {
-         setStatus('시작 실패: ' + e.message);
-         log('startBtn 에러: ' + e.stack);
-       }
-     });
+// ========== segmentAndRecognize 함수 수정 (CNN 우선 사용) ==========
+async function segmentAndRecognize(procCanvas) {
+  const WHITELIST = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+  
+  const w = procCanvas.width, h = procCanvas.height;
+  const avgCharWidth = Math.max(h * 0.7, 20);
+  let numChars = Math.max(1, Math.round(w / avgCharWidth));
+  numChars = Math.min(12, numChars);
+  
+  log(`고정분할: 추정 글자수=${numChars}, 전체너비=${w}`);
+  
+  const charWidth = Math.floor(w / numChars);
+  const results = [];
+  
+  for (let i = 0; i < numChars; i++) {
+    const sx = i * charWidth;
+    const sw = (i === numChars - 1) ? (w - sx) : charWidth;
+    
+    if (sw < 8) { results.push(''); continue; }
+    
+    const marginX = Math.floor(sw * 0.1);
+    const marginY = Math.floor(h * 0.05);
+    const sx2 = sx + marginX, sy2 = marginY;
+    const sw2 = Math.max(1, sw - marginX * 2);
+    const sh2 = Math.max(1, h - marginY * 2);
+    
+    const charCanvas = document.createElement('canvas');
+    charCanvas.width = sw2; charCanvas.height = sh2;
+    const ctx = charCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(procCanvas, sx2, sy2, sw2, sh2, 0, 0, sw2, sh2);
+    
+    let charText = '';
+    
+    // 1) CNN 모델 우선 시도
+    if (cnnModel) {
+      charText = await predictChar(charCanvas);
+    }
+    
+    // 2) CNN 실패 시 Tesseract fallback
+    if (!charText) {
+      try {
+        if (ocrWorker && typeof ocrWorker.setParameters === 'function' && !ocrWorker._fallback) {
+          await ocrWorker.setParameters({ 
+            tessedit_pageseg_mode: '10',
+            tessedit_char_whitelist: WHITELIST,
+            tessedit_ocr_engine_mode: '1'
+          });
+          const rres = await ocrWorker.recognize(charCanvas);
+          charText = (rres?.data?.text || rres?.text || '').trim();
+        } else {
+          const rres = await Tesseract.recognize(charCanvas, 'kor', {
+            langPath: TESSDATA_BASE,
+            tessedit_pageseg_mode: '10',
+            tessedit_char_whitelist: WHITELIST
+          });
+          charText = (rres?.data?.text || rres?.text || '').trim();
+        }
+        charText = charText.replace(/[^\u3131-\u314E]/g, '');
+        log(`문자 ${i+1}: Tesseract="${charText}"`);
+      } catch (e) {
+        log(`문자 ${i+1}: Tesseract 실패 - ${e?.message}`);
+        charText = '';
+      }
+    }
+    
+    // 3) 여전히 빈칸이면 밀도 추정
+    if (!charText) {
+      charText = guessCharByDensity(charCanvas);
+      log(`문자 ${i+1}: 밀도추정="${charText}"`);
+    }
+    
+    results.push(charText || '');
+  }
+  
+  try { 
+    if (ocrWorker?.setParameters && !ocrWorker._fallback) 
+      await ocrWorker.setParameters({ tessedit_pageseg_mode: '7' }); 
+  } catch(_) {}
+  
+  return results.join('');
+}
+
+// ========== startBtn 이벤트 핸들러 수정 (CNN 로드 추가) ==========
+startBtn.addEventListener('click', async () => {
+  try {
+    await loadCSV();
+    await loadCNNModel(); // CNN 모델 로드 (없으면 생성)
+    await startOCR();
+    
+    setStatus('화면 공유 권한 요청...');
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    video.srcObject = stream;
+    previewWrap.style.display = 'inline-block';
+
+    video.addEventListener('loadedmetadata', () => {
+      setTimeout(() => {
+        fitOverlayToVideo();
+        log('비디오 메타데이터 로드: ' + video.videoWidth + 'x' + video.videoHeight);
+      }, 50);
+    });
+    window.addEventListener('resize', fitOverlayToVideo);
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    status.textContent = '화면 공유 중... OCR 실행 중';
+    resetSelBtn.disabled = true;
+
+    // 빠른 디버깅을 위해 1초 간격으로 캡쳐+OCR, 필요시 늘릴 것
+    ocrInterval = setInterval(() => {
+      doCaptureAndLookup().catch(e => console.error(e));
+    }, 1000);
+
+    log('주기적 OCR 시작 (1초)');
+  } catch (e) {
+    setStatus('시작 실패: ' + e.message);
+    log('startBtn 에러: ' + e.stack);
+  }
+ });
 
      stopBtn.addEventListener('click', () => {
        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }

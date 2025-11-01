@@ -1,52 +1,30 @@
 // utils.js - 유틸리티 함수들
 
 /**
- * 한글 문자열에서 자음만 추출
+ * 한글 문자열에서 초성만 추출 (초성 퀴즈용)
  * @param {string} s - 입력 문자열
- * @returns {string} - 추출된 자음 문자열
+ * @returns {string} - 추출된 초성 문자열
  */
 export function normalizeKey(s) {
     if (!s) return '';
     let t = String(s).normalize('NFC');
     const consonants = [];
     
-    // 한글 자음 매핑 (초성)
+    // 한글 자음 매핑 (초성만)
     const chosung = [
         'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ',
         'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
-    ];
-    
-    // 한글 자음 매핑 (종성)
-    const jongsung = [
-        '', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ',
-        'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ',
-        'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
     ];
     
     for (let i = 0; i < t.length; i++) {
         const char = t[i];
         const code = char.charCodeAt(0);
         
-        // 한글 음절 (가-힣)
+        // 한글 음절 (가-힣) - 초성만 추출
         if (code >= 0xAC00 && code <= 0xD7A3) {
             const syllableIndex = code - 0xAC00;
             const chosungIndex = Math.floor(syllableIndex / 588);
-            const jungsungIndex = Math.floor((syllableIndex % 588) / 28);
-            const jongsungIndex = syllableIndex % 28;
-            
             consonants.push(chosung[chosungIndex]);
-            
-            if (jongsungIndex > 0) {
-                const jong = jongsung[jongsungIndex];
-                // 복합 종성 분해
-                if (jong.length > 1) {
-                    for (let c of jong) {
-                        consonants.push(c);
-                    }
-                } else {
-                    consonants.push(jong);
-                }
-            }
         }
         // 자음 자체 (ㄱ-ㅎ)
         else if (code >= 0x3131 && code <= 0x314E) {

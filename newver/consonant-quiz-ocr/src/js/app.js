@@ -4,6 +4,7 @@ import { log, setStatus, setProgress, captureVideoFrame, debounce } from './util
 import { loadQuizData, smartSearch } from './database.js';
 import { initializeOCR, processOCR, addTrainingData, terminateOCR } from './ocr.js';
 import { initUI, displayOCRResult, displaySearchResults, setLoadingState } from './ui.js';
+import { saveTrainingData, getGitHubUser } from './auth.js';
 
 // DOM 엘리먼트
 const startCaptureBtn = document.getElementById('startCaptureBtn');

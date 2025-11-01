@@ -1,6 +1,7 @@
-// ocr.js - OCR 처리 및 자음 인식 로직
+// ocr.js - OCR 처리 및 자음 인식
 
-import { log, setStatus, setProgress, normalizeKey, preprocessImage, saveToLocalStorage, loadFromLocalStorage } from './utils.js';
+import { log, setStatus, setProgress, preprocessImage, saveToLocalStorage, loadFromLocalStorage } from './utils.js';
+import { saveTrainingData, getGitHubUser } from './auth.js';
 
 let ocrWorker = null;
 let isOCRInitialized = false;

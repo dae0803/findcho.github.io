@@ -10,7 +10,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎮 자음 퀴즈 자동 답안 추출기</h1>
+    <div class="header">
+      <h1>🎮 자음 퀴즈 자동 답안 추출기</h1>
+      <button id="settingsBtn" class="settings-btn" title="학습 모드">⚙️</button>
+    </div>
     
     <div class="mainWrap">
       <!-- 왼쪽: 컨트롤 영역 -->
@@ -29,12 +32,6 @@
           2. 캡쳐할 화면/창 선택<br>
           3. 드래그로 퀴즈 영역 지정<br>
           4. 자동으로 정답 추출 및 표시
-        </div>
-
-        <div class="training-section">
-          <h3>🎓 자음 학습 모드</h3>
-          <p>자음 인식률 향상을 위해 샘플을 학습시키세요.</p>
-          <button id="trainModeBtn" class="btn btn-secondary">학습 모드 열기</button>
         </div>
 
         <div id="progressWrap">
@@ -75,43 +72,57 @@
       <div class="modal-content">
         <span class="close">&times;</span>
         <h2>🎓 자음 학습 모드</h2>
-        <p>각 자음의 이미지 샘플을 제공하여 인식률을 향상시키세요.</p>
         
-        <div class="train-input">
-          <label for="consonantSelect">학습할 자음 선택:</label>
-          <select id="consonantSelect">
-            <option value="">선택하세요</option>
-            <option value="ㄱ">ㄱ</option>
-            <option value="ㄴ">ㄴ</option>
-            <option value="ㄷ">ㄷ</option>
-            <option value="ㄹ">ㄹ</option>
-            <option value="ㅁ">ㅁ</option>
-            <option value="ㅂ">ㅂ</option>
-            <option value="ㅅ">ㅅ</option>
-            <option value="ㅇ">ㅇ</option>
-            <option value="ㅈ">ㅈ</option>
-            <option value="ㅊ">ㅊ</option>
-            <option value="ㅋ">ㅋ</option>
-            <option value="ㅌ">ㅌ</option>
-            <option value="ㅍ">ㅍ</option>
-            <option value="ㅎ">ㅎ</option>
-            <option value="ㄲ">ㄲ</option>
-            <option value="ㄸ">ㄸ</option>
-            <option value="ㅃ">ㅃ</option>
-            <option value="ㅆ">ㅆ</option>
-            <option value="ㅉ">ㅉ</option>
-          </select>
+        <!-- GitHub 인증 상태 -->
+        <div id="authStatus" class="auth-status">
+          <p>학습 데이터를 저장하려면 GitHub 로그인이 필요합니다.</p>
+          <button id="githubLoginBtn" class="btn btn-primary">GitHub으로 로그인</button>
+          <div id="userInfo" style="display:none;">
+            <p>로그인: <strong id="username"></strong></p>
+            <button id="githubLogoutBtn" class="btn btn-secondary">로그아웃</button>
+          </div>
         </div>
+        
+        <div id="trainingArea" style="display:none;">
+          <p>각 자음의 이미지 샘플을 제공하여 인식률을 향상시키세요.<br>
+          학습 데이터는 자동으로 리포지토리에 저장되어 모든 사용자가 활용할 수 있습니다.</p>
+          
+          <div class="train-input">
+            <label for="consonantSelect">학습할 자음 선택:</label>
+            <select id="consonantSelect">
+              <option value="">선택하세요</option>
+              <option value="ㄱ">ㄱ</option>
+              <option value="ㄴ">ㄴ</option>
+              <option value="ㄷ">ㄷ</option>
+              <option value="ㄹ">ㄹ</option>
+              <option value="ㅁ">ㅁ</option>
+              <option value="ㅂ">ㅂ</option>
+              <option value="ㅅ">ㅅ</option>
+              <option value="ㅇ">ㅇ</option>
+              <option value="ㅈ">ㅈ</option>
+              <option value="ㅊ">ㅊ</option>
+              <option value="ㅋ">ㅋ</option>
+              <option value="ㅌ">ㅌ</option>
+              <option value="ㅍ">ㅍ</option>
+              <option value="ㅎ">ㅎ</option>
+              <option value="ㄲ">ㄲ</option>
+              <option value="ㄸ">ㄸ</option>
+              <option value="ㅃ">ㅃ</option>
+              <option value="ㅆ">ㅆ</option>
+              <option value="ㅉ">ㅉ</option>
+            </select>
+          </div>
 
-        <div class="train-input">
-          <label for="trainImageInput">이미지 업로드:</label>
-          <input type="file" id="trainImageInput" accept="image/*" multiple />
+          <div class="train-input">
+            <label for="trainImageInput">이미지 업로드:</label>
+            <input type="file" id="trainImageInput" accept="image/*" multiple />
+          </div>
+
+          <div id="trainPreview" class="train-preview"></div>
+
+          <button id="startTrainBtn" class="btn btn-primary">학습 데이터 저장</button>
+          <div id="trainStatus" class="train-status"></div>
         </div>
-
-        <div id="trainPreview" class="train-preview"></div>
-
-        <button id="startTrainBtn" class="btn btn-primary">학습 시작</button>
-        <div id="trainStatus" class="train-status"></div>
       </div>
     </div>
   </div>

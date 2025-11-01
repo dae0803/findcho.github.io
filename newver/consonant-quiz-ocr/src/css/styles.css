@@ -19,12 +19,41 @@ body {
     padding: 20px;
 }
 
+.header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    margin-bottom: 30px;
+}
+
 h1 {
     text-align: center;
     color: white;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    margin-bottom: 30px;
+    margin: 0;
     font-size: 2.5em;
+}
+
+.settings-btn {
+    position: absolute;
+    right: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    color: white;
+    font-size: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s;
+    backdrop-filter: blur(10px);
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 h3 {
@@ -145,20 +174,6 @@ h3 {
     border-radius: 8px;
     font-size: 13px;
     line-height: 1.6;
-}
-
-.training-section {
-    background: #f0f8ff;
-    padding: 15px;
-    margin: 15px 0;
-    border-radius: 8px;
-    border: 2px dashed #667eea;
-}
-
-.training-section p {
-    margin: 10px 0;
-    font-size: 13px;
-    color: #666;
 }
 
 #progressWrap {
@@ -402,6 +417,50 @@ h3 {
     border-radius: 6px;
     min-height: 40px;
     font-size: 14px;
+}
+
+/* GitHub 인증 스타일 */
+.auth-status {
+    background: #fff9e6;
+    border: 2px solid #ffd700;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.auth-status p {
+    margin: 10px 0;
+    color: #666;
+}
+
+#userInfo {
+    margin-top: 15px;
+}
+
+#userInfo p {
+    font-size: 14px;
+    color: #333;
+}
+
+#username {
+    color: #667eea;
+    font-weight: 600;
+}
+
+#trainingArea {
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* 반응형 디자인 */

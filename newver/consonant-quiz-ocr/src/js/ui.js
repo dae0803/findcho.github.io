@@ -2,6 +2,13 @@
 
 import { log, setStatus, copyToClipboard } from './utils.js';
 import { smartSearch } from './database.js';
+import { 
+    getGitHubUser, 
+    initiateGitHubLogin, 
+    logoutGitHub, 
+    handleOAuthCallback,
+    saveTrainingData 
+} from './auth.js';
 
 // UI 엘리먼트 참조
 const resultDiv = document.getElementById('result');
@@ -10,8 +17,14 @@ const clearResultBtn = document.getElementById('clearResultBtn');
 const ocrLiveText = document.getElementById('ocrLiveText');
 const copyOcrBtn = document.getElementById('copyOcrBtn');
 const trainModal = document.getElementById('trainModal');
-const trainModeBtn = document.getElementById('trainModeBtn');
+const settingsBtn = document.getElementById('settingsBtn');
 const closeModalBtn = document.querySelector('.close');
+const githubLoginBtn = document.getElementById('githubLoginBtn');
+const githubLogoutBtn = document.getElementById('githubLogoutBtn');
+const authStatus = document.getElementById('authStatus');
+const userInfo = document.getElementById('userInfo');
+const usernameSpan = document.getElementById('username');
+const trainingArea = document.getElementById('trainingArea');
 
 let currentResults = [];
 let currentConsonants = '';
@@ -21,6 +34,9 @@ let currentConsonants = '';
  */
 export function initUI() {
     log('UI 초기화 중...', 'info');
+    
+    // OAuth 콜백 처리
+    handleOAuthCallback();
     
     // 결과 복사 버튼
     if (copyResultBtn) {
@@ -37,9 +53,18 @@ export function initUI() {
         copyOcrBtn.addEventListener('click', handleCopyOCR);
     }
     
-    // 학습 모드 버튼
-    if (trainModeBtn) {
-        trainModeBtn.addEventListener('click', openTrainModal);
+    // 설정 버튼 (학습 모드)
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', openTrainModal);
+    }
+    
+    // GitHub 로그인/로그아웃 버튼
+    if (githubLoginBtn) {
+        githubLoginBtn.addEventListener('click', handleGitHubLogin);
+    }
+    
+    if (githubLogoutBtn) {
+        githubLogoutBtn.addEventListener('click', handleGitHubLogout);
     }
     
     // 모달 닫기
@@ -53,6 +78,9 @@ export function initUI() {
             closeTrainModal();
         }
     });
+    
+    // 초기 인증 상태 확인
+    updateAuthUI();
     
     log('UI 초기화 완료', 'success');
 }
@@ -254,6 +282,7 @@ async function handleCopyOCR() {
 function openTrainModal() {
     if (trainModal) {
         trainModal.style.display = 'block';
+        updateAuthUI();
         log('학습 모드 열림', 'info');
     }
 }
@@ -265,6 +294,51 @@ function closeTrainModal() {
     if (trainModal) {
         trainModal.style.display = 'none';
         log('학습 모드 닫힘', 'info');
+    }
+}
+
+/**
+ * GitHub 로그인 처리
+ */
+function handleGitHubLogin() {
+    log('GitHub 로그인 시작', 'info');
+    initiateGitHubLogin();
+}
+
+/**
+ * GitHub 로그아웃 처리
+ */
+function handleGitHubLogout() {
+    logoutGitHub();
+    updateAuthUI();
+    closeTrainModal();
+}
+
+/**
+ * 인증 UI 업데이트
+ */
+function updateAuthUI() {
+    const user = getGitHubUser();
+    
+    if (user) {
+        // 로그인된 상태
+        if (authStatus && userInfo && usernameSpan && trainingArea) {
+            authStatus.style.display = 'none';
+            userInfo.style.display = 'block';
+            usernameSpan.textContent = user.login || user.name;
+            trainingArea.style.display = 'block';
+        }
+        
+        log(`인증 상태: ${user.login}`, 'success');
+    } else {
+        // 로그아웃 상태
+        if (authStatus && userInfo && trainingArea) {
+            authStatus.style.display = 'block';
+            userInfo.style.display = 'none';
+            trainingArea.style.display = 'none';
+        }
+        
+        log('인증 상태: 로그아웃', 'info');
     }
 }
 

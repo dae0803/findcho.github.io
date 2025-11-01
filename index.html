@@ -90,32 +90,40 @@
        } catch (e) { console.log('setProgress error', e); }
      }
  
-     // 텍스트 정규화: 한글 모음만 추출
+     // 텍스트 정규화: 한글 자음만 추출
      function normalizeKey(s) {
        if (!s) return '';
        let t = String(s).normalize('NFC');
        
-       // 한글 모음 유니코드 범위 (ㅏ-ㅣ): \u314F-\u3163
-       const vowels = [];
+       // 한글 자음 유니코드 범위 (ㄱ-ㅎ): \u3131-\u314E
+       const consonants = [];
        
        for (let i = 0; i < t.length; i++) {
          const char = t[i];
          const code = char.charCodeAt(0);
          
-         // 완성된 한글에서 모음 추출 (가-힣: AC00-D7A3)
+         // 완성된 한글에서 자음 추출 (가-힣: AC00-D7A3)
          if (code >= 0xAC00 && code <= 0xD7A3) {
            const syllableIndex = code - 0xAC00;
-           const vowelIndex = Math.floor((syllableIndex % 588) / 28);
-           const vowelCode = 0x314F + vowelIndex;
-           vowels.push(String.fromCharCode(vowelCode));
+           // 초성 추출
+           const initialIndex = Math.floor(syllableIndex / 588);
+           const initialCode = 0x3131 + initialIndex;
+           consonants.push(String.fromCharCode(initialCode));
+           
+           // 종성 추출 (있는 경우)
+           const finalIndex = syllableIndex % 28;
+           if (finalIndex > 0) {
+             const finalCode = 0x3131 + finalIndex - 1;
+             consonants.push(String.fromCharCode(finalCode));
+           }
          }
-         // 자모에서 모음만 추출 (ㅏ-ㅣ: 314F-3163)
-         else if (code >= 0x314F && code <= 0x3163) {
-           vowels.push(char);
+         // 자모에서 자음만 추출 (ㄱ-ㅎ: 3131-314E)
+         else if (code >= 0x3131 && code <= 0x314E) {
+           consonants.push(char);
          }
        }
        
-       return vowels.join('');
+       return consonants.join('');
      }
  
      let stream = null;
@@ -136,7 +144,7 @@
          if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
          const txt = await res.text();
          dbRows = txt.split(/\r?\n/).map(line => line.split(',').map(c => c.trim()));
-         // 인덱스 생성: 정규화된 col1(모음만) -> array of col2
+         // 인덱스 생성: 정규화된 col1(자음만) -> array of col2
          dbIndex.clear();
          for (const r of dbRows) {
            if (!r || r.length < 2) continue;
@@ -145,8 +153,8 @@
            if (!dbIndex.has(k1)) dbIndex.set(k1, []);
            dbIndex.get(k1).push(v2);
          }
-         setStatus('DB 로드 완료: ' + dbRows.length + '행, 모음 인덱스:' + dbIndex.size);
-         log('DB 모음 인덱스 예시: ' + JSON.stringify(Array.from(dbIndex.entries()).slice(0,5)));
+         setStatus('DB 로드 완료: ' + dbRows.length + '행, 자음 인덱스:' + dbIndex.size);
+         log('DB 자음 인덱스 예시: ' + JSON.stringify(Array.from(dbIndex.entries()).slice(0,5)));
        } catch (e) {
          setStatus('DB 로드 실패: ' + e.message);
          log('loadCSV error: ' + e.stack);
@@ -329,26 +337,26 @@
          const rawText = (res && (res.data && res.data.text)) ? res.data.text : (res && res.text ? res.text : '');
          log('OCR 원문:\n' + rawText);
          
-         // 한글에서 모음만 추출하여 줄 단위로 분리
-         const vowelExtracted = rawText.replace(/[^\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3\s]/g, '');
-         const lines = vowelExtracted.split(/\r?\n/).map(s => s.trim()).filter(s => s);
+         // 한글에서 자음만 추출하여 줄 단위로 분리
+         const consonantExtracted = rawText.replace(/[^\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3\s]/g, '');
+         const lines = consonantExtracted.split(/\r?\n/).map(s => s.trim()).filter(s => s);
          log('추출된 라인(한글만 필터): ' + JSON.stringify(lines.slice(0,5)));
          
          // 한 줄만 사용: 첫 줄(문제 텍스트)
          const raw1 = lines[0] || '';
-         // normalizeKey에서 모음만 추출하므로 "안녕하세요" -> "ㅏㅕㅏㅔㅛ"로 변환됨
+         // normalizeKey에서 자음만 추출하므로 "안녕하세요" -> "ㅇㄴㄴㅇㅎㅅㅇ"로 변환됨
          const key1 = normalizeKey(raw1);
-         log(`정규화 키(모음 추출): [${raw1} -> ${key1}]`);
+         log(`정규화 키(자음 추출): [${raw1} -> ${key1}]`);
  
-         // 1열 기준으로 모든 2열값을 조회 (모음 기준 매칭)
+         // 1열 기준으로 모든 2열값을 조회 (자음 기준 매칭)
          const matches = dbIndex.get(key1) || [];
          if (matches.length > 0) {
            setStatus('DB 일치 항목 발견: ' + matches.length + '개');
-           log('DB 매칭(모음 기준): ' + key1 + ' -> ' + JSON.stringify(matches));
+           log('DB 매칭(자음 기준): ' + key1 + ' -> ' + JSON.stringify(matches));
            renderResults(matches);
          } else {
            setStatus('DB 매칭 없음');
-           log('DB 매칭 없음 (모음키=' + key1 + ')');
+           log('DB 매칭 없음 (자음키=' + key1 + ')');
            renderResults([]);
          }
        } catch (e) {

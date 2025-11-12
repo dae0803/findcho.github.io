@@ -19,16 +19,20 @@
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1404130594250508"
          crossorigin="anonymous"></script>
     
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
                 Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            background: linear-gradient(135deg, #fef3e2 0%, #fce8d8 100%);
         }
         
-        /* 배경 그라디언트 */
+        /* 파스텔 그라디언트 */
         .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #b4d4ff 0%, #d4b5ff 100%);
         }
         
         #log-container p {
@@ -39,15 +43,15 @@
         #log-container p:last-child {
             border-bottom: none;
         }
-        .log-cost { color: #ffd700; font-weight: 600; }
-        .log-system { color: #81d4fa; }
-        .log-success { color: #4ade80; font-weight: 600; }
-        .log-fail { color: #f87171; }
-        .log-weapon-1500 { color: #86efac; }
-        .log-weapon-3000 { color: #c4b5fd; }
+        .log-cost { color: #fcd34d; font-weight: 600; }
+        .log-system { color: #93c5fd; }
+        .log-success { color: #86efac; font-weight: 600; }
+        .log-fail { color: #fca5a5; }
+        .log-weapon-1500 { color: #a7f3d0; }
+        .log-weapon-3000 { color: #ddd6fe; }
         .log-header {
             color: #ffffff;
-            background-color: #3b82f6;
+            background-color: #93c5fd;
             padding: 5px;
             font-weight: bold;
             margin-top: 10px;
@@ -113,7 +117,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <h1 class="text-3xl sm:text-5xl font-bold text-center mb-3">닼나용 메무 시뮬레이터</h1>
             <p class="text-base sm:text-xl text-center text-gray-100">버튼을 눌러 직접 무기 강화를 시도해보세요</p>
-            <p class="text-sm sm:text-base text-center text-gray-200 mt-2">성공 확률: 70% | 최대 시도: 7회 | 강화 비용: 100 단풍</p>
+            <p class="text-sm sm:text-base text-center text-gray-200 mt-2">2회 실패시 재시도방법으로 도전할경우, 두 무기 모두 6작에 약14000개 소모</p>
         </div>
     </header>
 
@@ -136,50 +140,50 @@
             </div>
             
             <!-- 총 소모 단풍 -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border-2 border-yellow-400">
-                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-yellow-400 pb-3 mb-4">
-                    💰 총 소모 단풍
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-200">
+                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-amber-200 pb-3 mb-4">
+                    <i class="fas fa-coins text-amber-400"></i> 총 소모 단풍
                 </h2>
-                <div id="total-cost" class="text-4xl font-bold text-yellow-500 text-center py-4">
+                <div id="total-cost" class="text-4xl font-bold text-amber-400 text-center py-4">
                     0 단풍
                 </div>
             </div>
 
             <!-- 무기 상점 -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
-                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-blue-500 pb-3 mb-4">
-                    🛒 무기 상점
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-sky-200 pb-3 mb-4">
+                    <i class="fas fa-store text-sky-400"></i> 무기 상점
                 </h2>
                 <div class="space-y-3">
-                    <button id="buy-1500" class="w-full p-4 text-base font-bold text-white bg-gradient-to-r from-green-500 to-green-600 rounded-lg hover:from-green-600 hover:to-green-700 transition duration-200 shadow-lg">
-                        💚 메이플스피어 (1500 단풍)
+                    <button id="buy-1500" class="w-full p-4 text-base font-bold text-white bg-gradient-to-r from-emerald-300 to-emerald-400 rounded-lg hover:from-emerald-400 hover:to-emerald-500 transition duration-200 shadow-md">
+                        <i class="fas fa-leaf"></i> 메이플스피어 (1500 단풍)
                     </button>
-                    <button id="buy-3000" class="w-full p-4 text-base font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg hover:from-blue-600 hover:to-blue-700 transition duration-200 shadow-lg">
-                        💙 베리트스피어 (3000 단풍)
+                    <button id="buy-3000" class="w-full p-4 text-base font-bold text-white bg-gradient-to-r from-sky-300 to-sky-400 rounded-lg hover:from-sky-400 hover:to-sky-500 transition duration-200 shadow-md">
+                        <i class="fas fa-gem"></i> 베리트스피어 (3000 단풍)
                     </button>
-                    <button id="reset-sim" class="w-full p-4 text-base font-bold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg hover:from-red-600 hover:to-red-700 transition duration-200 shadow-lg mt-3">
-                        🔄 초기화
+                    <button id="reset-sim" class="w-full p-4 text-base font-bold text-white bg-gradient-to-r from-rose-300 to-rose-400 rounded-lg hover:from-rose-400 hover:to-rose-500 transition duration-200 shadow-md mt-3">
+                        <i class="fas fa-rotate-right"></i> 초기화
                     </button>
                 </div>
             </div>
 
             <!-- 강화 설정 -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
-                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-purple-500 pb-3 mb-4">
-                    ⚙️ 강화 설정
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-purple-200 pb-3 mb-4">
+                    <i class="fas fa-gear text-purple-400"></i> 강화 설정
                 </h2>
                 <ul class="list-none p-0 space-y-3">
                     <li class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg flex justify-between items-center">
                         <span class="font-medium">강화 비용</span>
-                        <span class="font-bold text-lg text-blue-600 dark:text-blue-400">100 단풍</span>
+                        <span class="font-bold text-lg text-sky-500 dark:text-sky-400">100 단풍</span>
                     </li>
                     <li class="bg-gradient-to-r from-green-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg flex justify-between items-center">
                         <span class="font-medium">성공 확률</span>
-                        <span class="font-bold text-lg text-green-600 dark:text-green-400">70%</span>
+                        <span class="font-bold text-lg text-emerald-500 dark:text-emerald-400">70%</span>
                     </li>
                     <li class="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg flex justify-between items-center">
                         <span class="font-medium">최대 시도</span>
-                        <span class="font-bold text-lg text-orange-600 dark:text-orange-400">7회</span>
+                        <span class="font-bold text-lg text-amber-500 dark:text-amber-400">7회</span>
                     </li>
                 </ul>
             </div>
@@ -188,9 +192,9 @@
         <!-- Inventory and Log -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Inventory -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
-                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-blue-500 pb-3 mb-5">
-                    🎒 보유 무기 현황
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-sky-200 pb-3 mb-5">
+                    <i class="fas fa-bag-shopping text-sky-400"></i> 보유 무기 현황
                 </h2>
                 <div id="inventory-display" class="space-y-4">
                     <p class="text-gray-500 dark:text-gray-400 text-center py-8">보유한 무기가 없습니다. 상점에서 구매해주세요.</p>
@@ -198,12 +202,12 @@
             </div>
 
             <!-- Log Area -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 flex flex-col">
-                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-green-500 pb-3 mb-5">
-                    📜 상세 로그
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col">
+                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-emerald-200 pb-3 mb-5">
+                    <i class="fas fa-scroll text-emerald-400"></i> 상세 로그
                 </h2>
-                <div id="log-container" class="flex-grow bg-gray-900 dark:bg-black text-gray-100 p-5 rounded-xl overflow-y-auto h-96 min-h-[400px] font-mono text-sm leading-relaxed shadow-inner border-2 border-gray-700">
-                    <p class="log-system">🎮 시뮬레이션을 시작합니다.</p>
+                <div id="log-container" class="flex-grow bg-slate-800 dark:bg-black text-gray-100 p-5 rounded-xl overflow-y-auto h-96 min-h-[400px] font-mono text-sm leading-relaxed shadow-inner border-2 border-slate-600">
+                    <p class="log-system"><i class="fas fa-gamepad"></i> 시뮬레이션을 시작합니다.</p>
                 </div>
             </div>
             
@@ -237,7 +241,7 @@
 
     <footer class="bg-gray-800 text-white py-6 mt-12">
         <div class="max-w-7xl mx-auto px-4 text-center">
-            <p class="text-sm">© 2025 무기 강화 시뮬레이터 | Made with ❤️</p>
+            <p class="text-sm">© 2025 무기 강화 시뮬레이터 | Made by out外</p>
             <p class="text-xs text-gray-400 mt-2">이 시뮬레이터는 실제 게임과 다를 수 있습니다.</p>
         </div>
     </footer>
@@ -311,7 +315,7 @@
             logBuffer = [];
             if(logTimeout) clearTimeout(logTimeout);
             
-            logContainer.innerHTML = '<p class="log-system">🔄 시뮬레이션이 초기화되었습니다.</p>';
+            logContainer.innerHTML = '<p class="log-system"><i class="fas fa-rotate-right"></i> 시뮬레이션이 초기화되었습니다.</p>';
             updateCostDisplay();
             renderInventory();
         }
@@ -333,7 +337,7 @@
             logBuffer.forEach(item => {
                 const p = document.createElement('p');
                 p.className = item.type;
-                p.textContent = item.message;
+                p.innerHTML = item.message;  // textContent에서 innerHTML로 변경
                 fragment.appendChild(p);
             });
             logContainer.appendChild(fragment);
@@ -345,7 +349,7 @@
         /** 비용 추가 및 로그 */
         function addMapleCost(amount, reason) {
             totalMaple += amount;
-            log(`💰 [단풍 -${amount.toLocaleString()}] ${reason} (총 소모: ${totalMaple.toLocaleString()} 단풍)`, 'log-cost');
+            log(`<i class="fas fa-coins"></i> [단풍 -${amount.toLocaleString()}] ${reason} (총 소모: ${totalMaple.toLocaleString()} 단풍)`, 'log-cost');
             updateCostDisplay();
         }
 
@@ -365,7 +369,7 @@
             };
             inventory.push(newWeapon);
             addMapleCost(cost, `${type === 1500 ? '메이플스피어' : '베리트스피어'} 구매`);
-            log(`✅ [획득] ${type === 1500 ? '💚 메이플스피어' : '💙 베리트스피어'} (0강 / 7회) 1개를 획득했습니다. (ID: ${newWeapon.id % 10000})`, type === 1500 ? 'log-weapon-1500' : 'log-weapon-3000');
+            log(`<i class="fas fa-check-circle"></i> [획득] ${type === 1500 ? '<i class="fas fa-leaf"></i> 메이플스피어' : '<i class="fas fa-gem"></i> 베리트스피어'} (0강 / 7회) 1개를 획득했습니다. (ID: ${newWeapon.id % 10000})`, type === 1500 ? 'log-weapon-1500' : 'log-weapon-3000');
             renderInventory();
         }
 
@@ -379,29 +383,29 @@
             inventoryDisplay.innerHTML = '';
             inventory.forEach(weapon => {
                 const card = document.createElement('div');
-                card.className = `weapon-card p-5 rounded-xl shadow-lg border-2 ${weapon.type === 1500 ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 border-green-400' : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 border-blue-400'}`;
+                card.className = `weapon-card p-5 rounded-xl shadow-md border-2 ${weapon.type === 1500 ? 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900 dark:to-green-900 border-emerald-300' : 'bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-900 dark:to-blue-900 border-sky-300'}`;
                 
                 const canEnhance = weapon.attempts > 0;
                 const enhanceDisabled = canEnhance ? '' : 'disabled';
                 const upgradeDisabled = (weapon.type === 1500) ? '' : 'disabled hidden';
 
                 card.innerHTML = `
-                    <h3 class="text-xl font-bold ${weapon.type === 1500 ? 'text-green-700 dark:text-green-200' : 'text-blue-700 dark:text-blue-200'} mb-3">
-                        ${weapon.type === 1500 ? '💚 메이플스피어' : '💙 베리트스피어'} #${weapon.id % 10000}
+                    <h3 class="text-xl font-bold ${weapon.type === 1500 ? 'text-emerald-600 dark:text-emerald-300' : 'text-sky-600 dark:text-sky-300'} mb-3">
+                        ${weapon.type === 1500 ? '<i class="fas fa-leaf"></i> 메이플스피어' : '<i class="fas fa-gem"></i> 베리트스피어'} #${weapon.id % 10000}
                     </h3>
                     <div class="flex justify-between my-3 text-base bg-white dark:bg-gray-800 p-3 rounded-lg">
-                        <span>⭐ 강화: <span class="font-bold text-lg">${weapon.level}강</span></span>
-                        <span>🎯 남은 시도: <span class="font-bold text-lg">${weapon.attempts}회</span></span>
+                        <span><i class="fas fa-star text-amber-400"></i> 강화: <span class="font-bold text-lg">${weapon.level}강</span></span>
+                        <span><i class="fas fa-bullseye text-rose-400"></i> 남은 시도: <span class="font-bold text-lg">${weapon.attempts}회</span></span>
                     </div>
                     <div class="grid grid-cols-3 gap-2 mt-4">
-                        <button class="enhance-btn w-full p-3 text-sm font-bold text-white bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg hover:from-yellow-500 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-md" data-id="${weapon.id}" ${enhanceDisabled}>
-                            ⚔️ 강화<br/>(100)
+                        <button class="enhance-btn w-full p-3 text-sm font-bold text-white bg-gradient-to-r from-amber-300 to-orange-300 rounded-lg hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-md" data-id="${weapon.id}" ${enhanceDisabled}>
+                            <i class="fas fa-hammer"></i> 강화<br/>(100)
                         </button>
-                        <button class="upgrade-btn w-full p-3 text-sm font-bold text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-md ${upgradeDisabled}" data-id="${weapon.id}" ${upgradeDisabled}>
-                            ⬆️ 업글<br/>(1500)
+                        <button class="upgrade-btn w-full p-3 text-sm font-bold text-white bg-gradient-to-r from-purple-300 to-pink-300 rounded-lg hover:from-purple-400 hover:to-pink-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-md ${upgradeDisabled}" data-id="${weapon.id}" ${upgradeDisabled}>
+                            <i class="fas fa-arrow-up"></i> 업글<br/>(1500)
                         </button>
-                        <button class="discard-btn w-full p-3 text-sm font-bold text-white bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg hover:from-gray-600 hover:to-gray-700 shadow-md" data-id="${weapon.id}">
-                            🗑️ 버리기
+                        <button class="discard-btn w-full p-3 text-sm font-bold text-white bg-gradient-to-r from-slate-400 to-slate-500 rounded-lg hover:from-slate-500 hover:to-slate-600 shadow-md" data-id="${weapon.id}">
+                            <i class="fas fa-trash"></i> 버리기
                         </button>
                     </div>
                 `;
@@ -428,9 +432,9 @@
 
             if (Math.random() <= PROB_SUCCESS) {
                 weapon.level++;
-                log(`  ✨ [${weapon.id % 10000}] 🎉 성공! -> ${weapon.level}강 (남은 시도: ${weapon.attempts})`, 'log-success');
+                log(`  <i class="fas fa-sparkles"></i> [${weapon.id % 10000}] <i class="fas fa-party-horn"></i> 성공! -> ${weapon.level}강 (남은 시도: ${weapon.attempts})`, 'log-success');
             } else {
-                log(`  💔 [${weapon.id % 10000}] ❌ 실패... (남은 시도: ${weapon.attempts})`, 'log-fail');
+                log(`  <i class="fas fa-heart-crack"></i> [${weapon.id % 10000}] <i class="fas fa-xmark"></i> 실패... (남은 시도: ${weapon.attempts})`, 'log-fail');
             }
             renderInventory();
         }
@@ -452,7 +456,7 @@
             
             inventory[weaponIndex] = newWeapon;
             
-            log(`🔄 [업그레이드] 💚 메이플스피어 → 💙 베리트스피어 (0강 / 7회)로 변경되었습니다. (ID: ${newWeapon.id % 10000})`, 'log-weapon-3000');
+            log(`<i class="fas fa-recycle"></i> [업그레이드] <i class="fas fa-leaf"></i> 메이플스피어 → <i class="fas fa-gem"></i> 베리트스피어 (0강 / 7회)로 변경되었습니다. (ID: ${newWeapon.id % 10000})`, 'log-weapon-3000');
             renderInventory();
         }
 
@@ -462,7 +466,7 @@
             if (weaponIndex === -1) return;
             
             const weapon = inventory[weaponIndex];
-            log(`🗑️ [버리기] ${weapon.type === 1500 ? '💚 메이플스피어' : '💙 베리트스피어'} (${weapon.level}강)을 버렸습니다. (ID: ${weapon.id % 10000})`, 'log-system');
+            log(`<i class="fas fa-trash"></i> [버리기] ${weapon.type === 1500 ? '<i class="fas fa-leaf"></i> 메이플스피어' : '<i class="fas fa-gem"></i> 베리트스피어'} (${weapon.level}강)을 버렸습니다. (ID: ${weapon.id % 10000})`, 'log-system');
             
             inventory.splice(weaponIndex, 1);
             renderInventory();

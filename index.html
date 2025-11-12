@@ -234,28 +234,34 @@
     </footer>
 
     <script>
-        // 숨겨진 방문자 카운터 (개발자 도구에서만 확인 가능)
-        // GoatCounter - 무료 오픈소스 웹 분석 도구
-        const visitKey = 'dae0803_visit_count';
+        // 간단한 방문자 카운터 (개발자 도구에서만 확인)
+        // 로컬스토리지 기반 - CORS 문제 없음
+        const visitKey = 'dae0803_total_visits';
+        const sessionKey = 'dae0803_session_' + new Date().toDateString();
         
-        // 로컬스토리지 기반 간단한 카운터 (테스트용)
-        let localCount = parseInt(localStorage.getItem(visitKey) || '0') + 1;
-        localStorage.setItem(visitKey, localCount.toString());
+        // 세션별 중복 방문 체크
+        if (!sessionStorage.getItem(sessionKey)) {
+            let totalVisits = parseInt(localStorage.getItem(visitKey) || '0') + 1;
+            localStorage.setItem(visitKey, totalVisits.toString());
+            sessionStorage.setItem(sessionKey, 'visited');
+            
+            console.log('👥 총 방문 횟수:', totalVisits.toLocaleString() + '회 (이 브라우저 기준)');
+            console.log('📅 마지막 방문:', new Date().toLocaleString('ko-KR'));
+            console.log('💡 브라우저 데이터 삭제 시 초기화됩니다');
+        } else {
+            let totalVisits = parseInt(localStorage.getItem(visitKey) || '0');
+            console.log('👥 총 방문 횟수:', totalVisits.toLocaleString() + '회');
+            console.log('� 이미 오늘 방문 기록이 있습니다');
+        }
         
-        // CountAPI 시도
-        fetch('https://api.countapi.xyz/hit/dae0803.github.io/visits')
-            .then(res => {
-                if (!res.ok) throw new Error('API 응답 오류');
-                return res.json();
-            })
+        // 선택사항: 외부 API 시도 (실패해도 무시)
+        fetch('https://api.countapi.xyz/hit/dae0803.github.io/visits', { mode: 'cors' })
+            .then(res => res.json())
             .then(data => {
-                console.log('👥 총 방문자 수:', data.value.toLocaleString() + '명');
-                console.log('📊 API 상태: 정상 작동');
+                console.log('🌐 글로벌 방문자:', data.value.toLocaleString() + '명 (전체 사용자)');
             })
-            .catch(err => {
-                console.log('⚠️ CountAPI 오류:', err.message);
-                console.log('📊 로컬 카운트:', localCount + '회 (이 브라우저)');
-                console.log('💡 대안: Google Analytics 또는 다른 서비스를 사용하세요');
+            .catch(() => {
+                // 조용히 실패 (에러 표시 안함)
             });
     </script>
 

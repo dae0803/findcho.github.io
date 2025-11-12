@@ -27,12 +27,12 @@
         body {
             font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
                 Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-            background: linear-gradient(135deg, #fef3e2 0%, #fce8d8 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         }
         
-        /* 파스텔 그라디언트 */
+        /* 다크 파스텔 그라디언트 */
         .gradient-bg {
-            background: linear-gradient(135deg, #b4d4ff 0%, #d4b5ff 100%);
+            background: linear-gradient(135deg, #4a5568 0%, #070816 100%);
         }
         
         #log-container p {
@@ -43,15 +43,15 @@
         #log-container p:last-child {
             border-bottom: none;
         }
-        .log-cost { color: #fcd34d; font-weight: 600; }
-        .log-system { color: #93c5fd; }
-        .log-success { color: #86efac; font-weight: 600; }
-        .log-fail { color: #fca5a5; }
-        .log-weapon-1500 { color: #a7f3d0; }
-        .log-weapon-3000 { color: #ddd6fe; }
+        .log-cost { color: #91792b; font-weight: 600; }
+        .log-system { color: #384b61; }
+        .log-success { color: #447a58; font-weight: 600; }
+        .log-fail { color: #6d4646; }
+        .log-weapon-1500 { color: #3f5c4e; }
+        .log-weapon-3000 { color: #635f77; }
         .log-header {
             color: #ffffff;
-            background-color: #93c5fd;
+            background-color: #445e7a;
             padding: 5px;
             font-weight: bold;
             margin-top: 10px;
@@ -114,10 +114,10 @@
 
     <!-- Header with Gradient -->
     <header class="gradient-bg text-white shadow-lg mb-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <h1 class="text-3xl sm:text-5xl font-bold text-center mb-3">닼나용 메무 시뮬레이터</h1>
-            <p class="text-base sm:text-xl text-center text-gray-100">버튼을 눌러 직접 무기 강화를 시도해보세요</p>
-            <p class="text-sm sm:text-base text-center text-gray-200 mt-2">2회 실패시 재시도방법으로 도전할경우, 두 무기 모두 6작에 약14000개 소모</p>
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-center mb-2">닼나용 메무 시뮬레이터</h1>
+            <p class="text-sm sm:text-base text-center text-gray-100">버튼을 눌러 직접 무기 강화를 시도해보세요</p>
+            <p class="text-xs sm:text-sm text-center text-gray-200 mt-1">2회 실패시 재시도방법으로 도전할경우, 두 무기 모두 6작에 약14000개 소모</p>
         </div>
     </header>
 
@@ -140,8 +140,8 @@
             </div>
             
             <!-- 총 소모 단풍 -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-200">
-                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-amber-200 pb-3 mb-4">
+            <div class="bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-500">
+                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-amber-500 pb-3 mb-4 text-white">
                     <i class="fas fa-coins text-amber-400"></i> 총 소모 단풍
                 </h2>
                 <div id="total-cost" class="text-4xl font-bold text-amber-400 text-center py-4">
@@ -150,8 +150,8 @@
             </div>
 
             <!-- 무기 상점 -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-sky-200 pb-3 mb-4">
+            <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-sky-400 pb-3 mb-4 text-white">
                     <i class="fas fa-store text-sky-400"></i> 무기 상점
                 </h2>
                 <div class="space-y-3">
@@ -168,22 +168,22 @@
             </div>
 
             <!-- 강화 설정 -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-purple-200 pb-3 mb-4">
+            <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 border-b-2 border-purple-400 pb-3 mb-4 text-white">
                     <i class="fas fa-gear text-purple-400"></i> 강화 설정
                 </h2>
                 <ul class="list-none p-0 space-y-3">
-                    <li class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg flex justify-between items-center">
-                        <span class="font-medium">강화 비용</span>
-                        <span class="font-bold text-lg text-sky-500 dark:text-sky-400">100 단풍</span>
+                    <li class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <span class="font-medium text-gray-200">강화 비용</span>
+                        <span class="font-bold text-lg text-sky-400">100 단풍</span>
                     </li>
-                    <li class="bg-gradient-to-r from-green-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg flex justify-between items-center">
-                        <span class="font-medium">성공 확률</span>
-                        <span class="font-bold text-lg text-emerald-500 dark:text-emerald-400">70%</span>
+                    <li class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <span class="font-medium text-gray-200">성공 확률</span>
+                        <span class="font-bold text-lg text-emerald-400">70%</span>
                     </li>
-                    <li class="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg flex justify-between items-center">
-                        <span class="font-medium">최대 시도</span>
-                        <span class="font-bold text-lg text-amber-500 dark:text-amber-400">7회</span>
+                    <li class="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <span class="font-medium text-gray-200">최대 시도</span>
+                        <span class="font-bold text-lg text-amber-400">7회</span>
                     </li>
                 </ul>
             </div>
@@ -192,21 +192,21 @@
         <!-- Inventory and Log -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Inventory -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-sky-200 pb-3 mb-5">
+            <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-sky-400 pb-3 mb-5 text-white">
                     <i class="fas fa-bag-shopping text-sky-400"></i> 보유 무기 현황
                 </h2>
                 <div id="inventory-display" class="space-y-4">
-                    <p class="text-gray-500 dark:text-gray-400 text-center py-8">보유한 무기가 없습니다. 상점에서 구매해주세요.</p>
+                    <p class="text-gray-400 text-center py-8">보유한 무기가 없습니다. 상점에서 구매해주세요.</p>
                 </div>
             </div>
 
             <!-- Log Area -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col">
-                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-emerald-200 pb-3 mb-5">
+            <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col">
+                <h2 class="text-2xl font-bold flex items-center gap-2 border-b-2 border-emerald-400 pb-3 mb-5 text-white">
                     <i class="fas fa-scroll text-emerald-400"></i> 상세 로그
                 </h2>
-                <div id="log-container" class="flex-grow bg-slate-800 dark:bg-black text-gray-100 p-5 rounded-xl overflow-y-auto h-96 min-h-[400px] font-mono text-sm leading-relaxed shadow-inner border-2 border-slate-600">
+                <div id="log-container" class="flex-grow bg-gray-900 text-gray-100 p-5 rounded-xl overflow-y-auto h-96 min-h-[400px] font-mono text-sm leading-relaxed shadow-inner border-2 border-gray-700">
                     <p class="log-system"><i class="fas fa-gamepad"></i> 시뮬레이션을 시작합니다.</p>
                 </div>
             </div>
@@ -383,17 +383,17 @@
             inventoryDisplay.innerHTML = '';
             inventory.forEach(weapon => {
                 const card = document.createElement('div');
-                card.className = `weapon-card p-5 rounded-xl shadow-md border-2 ${weapon.type === 1500 ? 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900 dark:to-green-900 border-emerald-300' : 'bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-900 dark:to-blue-900 border-sky-300'}`;
+                card.className = `weapon-card p-5 rounded-xl shadow-md border-2 ${weapon.type === 1500 ? 'bg-gradient-to-br from-emerald-900 to-green-900 border-emerald-500' : 'bg-gradient-to-br from-sky-900 to-blue-900 border-sky-500'}`;
                 
                 const canEnhance = weapon.attempts > 0;
                 const enhanceDisabled = canEnhance ? '' : 'disabled';
                 const upgradeDisabled = (weapon.type === 1500) ? '' : 'disabled hidden';
 
                 card.innerHTML = `
-                    <h3 class="text-xl font-bold ${weapon.type === 1500 ? 'text-emerald-600 dark:text-emerald-300' : 'text-sky-600 dark:text-sky-300'} mb-3">
+                    <h3 class="text-xl font-bold ${weapon.type === 1500 ? 'text-emerald-300' : 'text-sky-300'} mb-3">
                         ${weapon.type === 1500 ? '<i class="fas fa-leaf"></i> 메이플스피어' : '<i class="fas fa-gem"></i> 베리트스피어'} #${weapon.id % 10000}
                     </h3>
-                    <div class="flex justify-between my-3 text-base bg-white dark:bg-gray-800 p-3 rounded-lg">
+                    <div class="flex justify-between my-3 text-base bg-gray-800 p-3 rounded-lg text-gray-200">
                         <span><i class="fas fa-star text-amber-400"></i> 강화: <span class="font-bold text-lg">${weapon.level}강</span></span>
                         <span><i class="fas fa-bullseye text-rose-400"></i> 남은 시도: <span class="font-bold text-lg">${weapon.attempts}회</span></span>
                     </div>

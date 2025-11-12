@@ -235,14 +235,27 @@
 
     <script>
         // 숨겨진 방문자 카운터 (개발자 도구에서만 확인 가능)
+        // GoatCounter - 무료 오픈소스 웹 분석 도구
+        const visitKey = 'dae0803_visit_count';
+        
+        // 로컬스토리지 기반 간단한 카운터 (테스트용)
+        let localCount = parseInt(localStorage.getItem(visitKey) || '0') + 1;
+        localStorage.setItem(visitKey, localCount.toString());
+        
+        // CountAPI 시도
         fetch('https://api.countapi.xyz/hit/dae0803.github.io/visits')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('API 응답 오류');
+                return res.json();
+            })
             .then(data => {
                 console.log('👥 총 방문자 수:', data.value.toLocaleString() + '명');
-                console.log('📊 오늘 방문:', '(카운터 API에서 추적 중)');
+                console.log('📊 API 상태: 정상 작동');
             })
             .catch(err => {
-                console.log('⚠️ 방문자 수 집계 중...');
+                console.log('⚠️ CountAPI 오류:', err.message);
+                console.log('📊 로컬 카운트:', localCount + '회 (이 브라우저)');
+                console.log('💡 대안: Google Analytics 또는 다른 서비스를 사용하세요');
             });
     </script>
 

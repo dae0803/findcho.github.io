@@ -230,8 +230,24 @@
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-sm">© 2025 무기 강화 시뮬레이터 | Made with ❤️</p>
             <p class="text-xs text-gray-400 mt-2">이 시뮬레이터는 실제 게임과 다를 수 있습니다.</p>
+            <div class="mt-4 flex justify-center items-center gap-2">
+                <span class="text-sm text-gray-300">👥 총 방문자:</span>
+                <span id="visitor-count" class="text-lg font-bold text-yellow-400">로딩중...</span>
+            </div>
         </div>
     </footer>
+
+    <script>
+        // 실시간 방문자 카운터 (CountAPI)
+        fetch('https://api.countapi.xyz/hit/dae0803.github.io/visits')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('visitor-count').innerText = data.value.toLocaleString() + '명';
+            })
+            .catch(err => {
+                document.getElementById('visitor-count').innerText = '집계중';
+            });
+    </script>
 
     <script>
         // --- DOM 요소 ---
